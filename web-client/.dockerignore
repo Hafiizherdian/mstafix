@@ -1,0 +1,22 @@
+# Dependencies dan build hasil Next.js
+node_modules
+.next
+out
+
+# Log / cache
+npm-debug.log*
+*.log
+
+# Git / IDE / OS
+.git
+.gitignore
+.vscode
+.DS_Store
+
+# Environment lokal
+.env
+.env.* 
+
+# Docker
+Dockerfile
+.dockerignore 

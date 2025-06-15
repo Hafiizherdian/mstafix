@@ -1,0 +1,215 @@
+services:
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3000:3000"
+    command: npm start
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+
+  # Auth Service
+  auth-service:
+    build: 
+      context: ./auth-service
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@auth-db:5432/auth?schema=public
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+      - REFRESH_TOKEN_SECRET=refresh-token-secret
+      - JWT_EXPIRES_IN=24h
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Generate Soal Service
+  generate-soal-service:
+    build: ./generate-soal-service
+    ports:
+      - "3002:3002"
+    environment:
+      - DATABASE_URL=postgresql://user:password@generate-soal-db:5432/generate_soal
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - API_GATEWAY_URL=http://api-gateway:3000
+      - REQUEST_TIMEOUT=300000
+      - HEADERS_TIMEOUT=300000
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+    depends_on:
+      - rabbitmq
+      - generate-soal-db
+    networks:
+      - app-network
+    restart: always
+
+  # Manage Soal Service
+  manage-soal-service:
+    build: ./manage-soal-service
+    ports:
+      - "3003:3003"
+    environment:
+      - DATABASE_URL=postgresql://user:password@manage-soal-db:5432/manage_soal
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+    depends_on:
+      - rabbitmq
+      - manage-soal-db
+    networks:
+      - app-network
+    restart: always
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+    restart: always
+
+  # Auth Database
+  auth-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=auth
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Other Databases
+  generate-soal-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=generate_soal
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d generate_soal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - generate-soal-db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    command: postgres -c 'max_connections=1000'
+    restart: always
+
+  manage-soal-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=manage_soal
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d manage_soal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - manage-soal-db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    command: postgres -c 'max_connections=1000'
+    restart: always
+
+  web-client:
+    build: ./web-client
+    ports:
+      - "80:3000"
+    environment:
+      # URLs for client-side (browser) access - FOR LOCAL DEVELOPMENT
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:3000
+      - NEXT_PUBLIC_NOTIFICATION_WS_URL=ws://localhost:3004
+      
+      # URLs for server-side rendering/API routes within Next.js
+      - GENERATE_SOAL_SERVICE_URL=http://generate-soal-service:3002
+      - MANAGE_SOAL_SERVICE_URL=http://manage-soal-service:3003
+      - API_GATEWAY_URL=http://api-gateway:3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+
+      # Other variables
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - NEXT_PUBLIC_REQUEST_TIMEOUT=300000
+      - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
+    depends_on:
+      - api-gateway
+    networks:
+      - app-network
+    restart: always
+
+volumes:
+  auth-db-data:
+  generate-soal-db-data:
+  manage-soal-db-data:
+
+networks:
+  app-network:
+    driver: bridge
+
+

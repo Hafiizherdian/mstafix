@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Aturan CSS global untuk tampilan responsif */
+html, body {
+  @apply antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mencegah overflow horizontal pada perangkat mobile */
+body {
+  @apply overflow-x-hidden;
+}
+
+/* Animasi transisi untuk sidebar */
+@layer utilities {
+  .transition-sidebar {
+    transition: transform 0.3s ease-in-out, margin-left 0.3s ease-in-out;
+  }
+
+  /* Hover effect untuk kartu dan tombol */
+  .hover-lift {
+    @apply transition-all duration-300;
+  }
+  .hover-lift:hover {
+    @apply transform -translate-y-1 shadow-md;
+  }
+
+  /* Touch effects untuk elemen interaktif di mobile */
+  .touch-effect {
+    @apply transition-all duration-150 active:scale-95;
+  }
+
+  /* Efek glassmorphism untuk header dan overlay */
+  .glass-effect {
+    @apply bg-zinc-900/90 backdrop-blur-sm;
+  }
+
+  /* Focus style khusus untuk form-controls */
+  .focus-ring {
+    @apply focus:ring-2 focus:ring-offset-0 focus:ring-cyan-500 focus:ring-opacity-50 focus:outline-none;
+  }
+
+  /* Card dengan efek glassmorphism */
+  .card-glass {
+    @apply bg-zinc-900/90 backdrop-blur-sm border border-zinc-800/50 shadow-lg;
+  }
+
+  /* Centric layout untuk konten utama */
+  .content-layout {
+    @apply max-w-6xl mx-auto lg:pl-16 xl:pl-24 lg:pr-4 xl:pr-12;
+  }
+
+  /* Button style yang konsisten */
+  .btn {
+    @apply rounded-lg transition-all duration-200 flex items-center justify-center;
+  }
+  
+  .btn-primary {
+    @apply btn bg-cyan-600 text-white hover:bg-cyan-700 hover:shadow-md active:translate-y-0.5;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white active:bg-zinc-700/90;
+  }
+  
+  .btn-danger {
+    @apply btn bg-zinc-800 text-red-400 hover:bg-red-900/30 active:bg-red-900/50;
+  }
+
+  /* Hide scrollbar for clean UI in navigation */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Memperbaiki tampilan scrollbar */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-zinc-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-700 rounded-full hover:bg-zinc-600;
+}
+
+/* Animasi loading */
+@keyframes pulse-shadow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(6, 182, 212, 0);
+  }
+}
+
+.animate-pulse-shadow {
+  animation: pulse-shadow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Mobile-friendly input improvements */
+@media (max-width: 768px) {
+  input, select, textarea {
+    @apply text-base;
+    font-size: 16px !important; /* Prevent auto-zoom on iOS */
+  }
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 768px) {
+  button, a {
+    @apply min-h-[44px] min-w-[44px];
+  }
+}
+
+/* Safe area insets for mobile devices with notches */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: min(16px, env(safe-area-inset-left));
+    padding-right: min(16px, env(safe-area-inset-right));
+    padding-bottom: min(16px, env(safe-area-inset-bottom));
+  }
+  
+  .fixed-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .has-safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+} 
