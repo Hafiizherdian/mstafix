@@ -1,52 +1,53 @@
-import express from 'express'
-import cors from 'cors'
-import questionRoutes from './routes/question.routes'
-import { PrismaClient } from '@prisma/client'
-import { messageQueue } from './services/messageQueue'
+import express from "express";
+import cors from "cors";
+import questionRoutes from "./routes/question.routes";
+import adminRoutes from "./routes/admin.routes";
+import { PrismaClient } from "@prisma/client";
+import { messageQueue } from "./services/messageQueue";
 
-const prisma = new PrismaClient()
-const PORT = process.env.PORT || 3003
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 3003;
 
-const app = express()
+const app = express();
 
 // Middleware
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Body:', req.body);
+  console.log("Headers:", JSON.stringify(req.headers, null, 2));
+  console.log("Body:", req.body);
   next();
 });
 
 // Routes
-app.use('/', questionRoutes)
+app.use("/", questionRoutes);
+app.use("/admin", adminRoutes);
 
 async function startServer() {
   try {
-    await prisma.$connect()
-    console.log('Database connected successfully')
+    await prisma.$connect();
+    console.log("Database connected successfully");
 
     // Initialize message queue
-    await messageQueue.connect()
-    
+    await messageQueue.connect();
+
     app.listen(PORT, () => {
-      console.log(`Manage Soal Service running on port ${PORT}`)
-    })
+      console.log(`Manage Soal Service running on port ${PORT}`);
+    });
 
     // Graceful shutdown
-    process.on('SIGTERM', async () => {
-      await messageQueue.disconnect()
-      await prisma.$disconnect()
-      process.exit(0)
-    })
-
+    process.on("SIGTERM", async () => {
+      await messageQueue.disconnect();
+      await prisma.$disconnect();
+      process.exit(0);
+    });
   } catch (error) {
-    console.error('Failed to start server:', error)
-    process.exit(1)
+    console.error("Failed to start server:", error);
+    process.exit(1);
   }
 }
 
-startServer()
+startServer();
