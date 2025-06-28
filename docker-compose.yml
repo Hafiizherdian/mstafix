@@ -22,7 +22,7 @@ services:
   api-gateway:
     build: ./api-gateway
     ports:
-      - "3000:3000"
+      - "4000:3000"
     command: npm start
     environment:
       - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}
@@ -35,7 +35,7 @@ services:
 
   # Auth Service
   auth-service:
-    build: 
+    build:
       context: ./auth-service
     ports:
       - "3001:3001"
@@ -181,12 +181,12 @@ services:
   web-client:
     build: ./web-client
     ports:
-      - "80:3000"
+      - "3000:3000"
     environment:
       # URLs for client-side (browser) access - FOR LOCAL DEVELOPMENT
-      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_GATEWAY_URL=http://localhost:4000
       - NEXT_PUBLIC_NOTIFICATION_WS_URL=ws://localhost:3004
-      
+
       # URLs for server-side rendering/API routes within Next.js
       - GENERATE_SOAL_SERVICE_URL=http://generate-soal-service:3002
       - MANAGE_SOAL_SERVICE_URL=http://manage-soal-service:3003
@@ -211,5 +211,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-
-

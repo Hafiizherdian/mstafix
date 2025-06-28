@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyToken = void 0;
+exports.verifyAdmin = exports.verifyToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -48,4 +48,18 @@ const verifyToken = (req, res, next) => {
     }
 };
 exports.verifyToken = verifyToken;
+const verifyAdmin = (req, res, next) => {
+    const user = req.user;
+    if (!user) {
+        console.error('[AUTH] User data not found in request');
+        return res.status(401).json({ message: 'Unauthorized access' });
+    }
+    if (user.role !== 'ADMIN') {
+        console.error(`[AUTH] User ${user.email} is not an admin (role: ${user.role})`);
+        return res.status(403).json({ message: 'Admin access required' });
+    }
+    console.log(`[AUTH] Admin access verified for user: ${user.email}`);
+    next();
+};
+exports.verifyAdmin = verifyAdmin;
 //# sourceMappingURL=auth.js.map
