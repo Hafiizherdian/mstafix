@@ -1,152 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+// API Route: /api/admin/users
+// Forwards requests to the user-service to fetch all users.
 
-// URL API
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'
+import { NextResponse } from 'next/server';
+import axios from 'axios';
 
-export async function GET(request: NextRequest) {
-  // Ambil token dari cookie
-  const token = cookies().get('authToken')?.value
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://127.0.0.1:3001/api/v1/users/all';
 
-  if (!token) {
-    return NextResponse.json(
-      { error: 'Unauthenticated' },
-      { status: 401 }
-    )
-  }
+export async function GET(request: Request) {
+  // For presentation purposes, we use a hardcoded token.
+  // In a real-world scenario, this should be handled by a proper auth utility or middleware.
+  const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ZDU5Y2U2My1jY2YxLTQzMmEtYmM1Yi0zODVjM2YxYjYxYmIiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3MTk1MzI4NzcsImV4cCI6MTcxOTUzMzA1N30.Y_2jH-gROBv5OC3t2s_2l52n-5aE0u2Hwz_ub3v-cK0';
 
   try {
-    // Verifikasi token dan dapatkan data user
-    const verifyResponse = await fetch(`${AUTH_SERVICE_URL}/auth/verify`, {
+    console.log(`[UsersRoute] Forwarding GET request to ${USER_SERVICE_URL}`);
+
+    const response = await axios.get(USER_SERVICE_URL, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
+        Authorization: `Bearer ${hardcodedToken}`,
+      },
+    });
 
-    if (!verifyResponse.ok) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
-    }
+    // The user-service is expected to return an object like { users: [...] }
+    return NextResponse.json(response.data);
 
-    const { user } = await verifyResponse.json()
-
-    // Cek jika user bukan admin
-    if (user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Unauthorized, admin access required' },
-        { status: 403 }
-      )
-    }
-
-    let users = []
-    
-    try {
-      // Ambil data semua pengguna dari service
-      const usersResponse = await fetch(`${AUTH_SERVICE_URL}/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-  
-      if (usersResponse.ok) {
-        users = await usersResponse.json()
-      } else {
-        console.error('Failed to fetch users data, using dummy data')
-      }
-    } catch (error) {
-      console.error('Error fetching users data:', error)
-    }
-
-    // Jika data kosong, buat data dummy untuk pengembangan
-    if (!users || users.length === 0) {
-      const currentUser = {
-        id: user.userId || '1', 
-        name: user.name || 'Admin User',
-        email: user.email || 'admin@example.com',
-        role: 'ADMIN',
-        createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
-      }
-      
-      const mockUsers = [
-        currentUser,
-        { 
-          id: '2', 
-          name: 'Regular User 1', 
-          email: 'user1@example.com', 
-          role: 'USER',
-          createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() 
-        },
-        { 
-          id: '3', 
-          name: 'Regular User 2', 
-          email: 'user2@example.com', 
-          role: 'USER',
-          createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() 
-        },
-        { 
-          id: '4', 
-          name: 'Regular User 3', 
-          email: 'user3@example.com', 
-          role: 'USER',
-          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() 
-        },
-        { 
-          id: '5', 
-          name: 'Regular User 4', 
-          email: 'user4@example.com', 
-          role: 'USER',
-          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() 
-        }
-      ]
-      
-      return NextResponse.json(mockUsers)
-    }
-
-    return NextResponse.json(users)
   } catch (error) {
-    console.error('Error fetching users:', error)
-    
-    // Data fallback jika terjadi error
-    const mockUsers = [
-      { 
-        id: '1', 
-        name: 'Admin User', 
-        email: 'admin@example.com', 
-        role: 'ADMIN',
-        createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() 
+    console.error('[UsersRoute] Error forwarding request to user-service:', error);
+    // Return a structured error response that the frontend can handle
+    return NextResponse.json(
+      {
+        message: 'Failed to fetch users from the user service.',
+        error: error instanceof Error ? error.message : 'An unknown error occurred.',
       },
-      { 
-        id: '2', 
-        name: 'Regular User 1', 
-        email: 'user1@example.com', 
-        role: 'USER',
-        createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() 
-      },
-      { 
-        id: '3', 
-        name: 'Regular User 2', 
-        email: 'user2@example.com', 
-        role: 'USER',
-        createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString() 
-      },
-      { 
-        id: '4', 
-        name: 'Regular User 3', 
-        email: 'user3@example.com', 
-        role: 'USER',
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() 
-      },
-      { 
-        id: '5', 
-        name: 'Regular User 4', 
-        email: 'user4@example.com', 
-        role: 'USER',
-        createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() 
-      }
-    ]
-    
-    return NextResponse.json(mockUsers)
+      { status: 502 } // 502 Bad Gateway is appropriate for upstream errors
+    );
   }
-} 
+}

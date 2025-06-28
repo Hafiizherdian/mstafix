@@ -1,54 +1,57 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const publicRoutes = ['/', '/login', '/register', '/setup-admin', '/admin-utils']
-const adminRoutes = ['/admin']
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
-  const isPublicPath = publicRoutes.includes(path)
-  const isAdminPath = adminRoutes.some(route => path.startsWith(route))
-
-  // Cek token dari cookie
-  const token = request.cookies.get('authToken')?.value
-  
-  console.log(`Middleware checking path: ${path}, isPublicPath: ${isPublicPath}, isAdminPath: ${isAdminPath}, hasToken: ${!!token}`);
-
-  // Redirect authenticated users away from public routes
-  if (isPublicPath && token) {
-    console.log('Redirecting authenticated user from public path');
-    
-    // Karena middleware tidak memiliki akses langsung ke decoded token,
-    // kita hanya bisa memeriksa apakah pengguna terarah ke admin dari cookie
-    // Ini akan ditangani oleh halaman login dan homepage
-    
-    // Default redirect ke generate-soal (regular user)
-    return NextResponse.redirect(new URL('/generate-soal', request.url))
+  // Skip middleware untuk file static dan API
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".") ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
   }
 
-  // Redirect unauthenticated users to login
-  if (!isPublicPath && !token) {
-    console.log('Redirecting unauthenticated user to login');
-    const loginUrl = new URL('/login', request.url)
-    // Store the requested path so we can redirect back after login
-    loginUrl.searchParams.set('redirect', path)
-    return NextResponse.redirect(loginUrl)
+  // Route public yang bisa diakses tanpa login
+  const publicPaths = ["/", "/login", "/register", "/setup-admin"];
+  if (publicPaths.includes(pathname)) {
+    console.log(`Public path allowed: ${pathname}`);
+    return NextResponse.next();
   }
 
-  // Cek akses admin pada rute admin - akan dicek lebih detail di API endpoint
-  // Karena middleware tidak bisa memeriksa role user (membutuhkan verifikasi token server-side)
-  // Maka kita hanya cek keberadaan token. Verifikasi role akan dilakukan pada halaman dan API
+  // Cek token
+  const token =
+    request.cookies.get("authToken")?.value ||
+    request.cookies.get("token")?.value;
 
-  return NextResponse.next()
+  console.log(`Simple middleware: ${pathname}, token: ${!!token}`);
+
+  // Special handling untuk admin routes
+  if (pathname.startsWith("/admin")) {
+    console.log(`Admin route detected: ${pathname}`);
+    if (!token) {
+      console.log("No token for admin route, redirect to login");
+      const loginUrl = new URL("/login", request.nextUrl.origin);
+      return NextResponse.redirect(loginUrl);
+    }
+    console.log("Token found for admin route, allowing access");
+    return NextResponse.next();
+  }
+
+  // Kalau tidak ada token, redirect ke login
+  if (!token) {
+    console.log("No token, redirect to login");
+    const loginUrl = new URL("/login", request.nextUrl.origin);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Kalau ada token, allow access (simplified untuk thesis)
+  console.log("Token found, allowing access");
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    '/',
-    '/login',
-    '/register',
-    '/generate-soal/:path*',
-    '/manage-soal/:path*',
-    '/admin/:path*',
-  ]
-}
+  matcher: ["/((?!_next|api|favicon.ico|.*\\.).*)"],
+};
