@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "@types/express": "^5.0.1",
-    "@types/http-proxy-middleware": "^0.19.3",
-    "express": "^4.21.2",
-    "http-proxy-middleware": "^3.0.3"
-  }
-}
