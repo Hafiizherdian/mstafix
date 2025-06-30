@@ -821,63 +821,121 @@ export const updateUserRole = async (
   req: AuthenticatedRequest,
   res: Response,
 ): Promise<Response | void> => {
+  console.log('=== UPDATE ROLE REQUEST ===');
+  console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Request Body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { userId, role } = req.body;
     const adminSecretKey = req.headers["admin-secret-key"] as string;
-    const ADMIN_SECRET_KEY =
-      process.env.ADMIN_CREATION_KEY || "rahasia-admin-msta-2024";
+    const ADMIN_SECRET_KEY = process.env.ADMIN_CREATION_KEY || "rahasia-admin-msta-2024";
+    const normalizedRole = role ? role.toUpperCase() : '';
 
-    // Validate admin secret key for creating admin users
-    if (role === "ADMIN" && adminSecretKey !== ADMIN_SECRET_KEY) {
-      return res.status(403).json({
-        error: "Invalid admin secret key",
-      });
-    }
+    console.log('Validating request...');
+    console.log('User ID:', userId);
+    console.log('Original Role:', role);
+    console.log('Normalized Role:', normalizedRole);
+    console.log('Admin Secret Key Provided:', !!adminSecretKey);
+    console.log('Expected Admin Secret Key:', ADMIN_SECRET_KEY);
 
     // Validate input
     if (!userId || !role) {
+      console.error('Missing required fields');
+      console.log('User ID provided:', !!userId);
+      console.log('Role provided:', !!role);
       return res.status(400).json({
+        success: false,
         error: "User ID and role are required",
+        details: {
+          userId: userId ? 'Provided' : 'Missing',
+          role: role ? 'Provided' : 'Missing'
+        }
       });
     }
 
     // Validate role
-    if (!["USER", "ADMIN"].includes(role.toUpperCase())) {
+    if (!["USER", "ADMIN"].includes(normalizedRole)) {
       return res.status(400).json({
+        success: false,
         error: "Invalid role. Must be USER or ADMIN",
+        receivedRole: role,
+        normalizedRole: normalizedRole
       });
     }
 
+    // Validate admin secret key for creating admin users
+    if (normalizedRole === "ADMIN") {
+      console.log('Validating admin secret key...');
+      if (adminSecretKey !== ADMIN_SECRET_KEY) {
+        console.error('Invalid admin secret key provided');
+        return res.status(403).json({
+          success: false,
+          error: "Invalid admin secret key",
+          details: "Admin secret key is required to create an admin user"
+        });
+      }
+      console.log('Admin secret key validated');
+    }
+
     // Check if user exists
+    console.log('Checking if user exists...');
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!existingUser) {
-      return res.status(404).json({ error: "User not found" });
+      console.error('User not found with ID:', userId);
+      return res.status(404).json({ 
+        success: false,
+        error: "User not found",
+        userId: userId
+      });
     }
+    
+    console.log('Found user:', {
+      id: existingUser.id,
+      email: existingUser.email,
+      currentRole: existingUser.role,
+      requestedRole: normalizedRole
+    });
 
     // Update user role
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { role: role.toUpperCase() as Role },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    console.log('Updating user role...');
+    try {
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { role: normalizedRole as Role },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
 
-    res.status(200).json({
-      success: true,
-      message: `User role updated to ${role.toUpperCase()}`,
-      data: updatedUser,
-    });
+      console.log('Role updated successfully:', JSON.stringify(updatedUser, null, 2));
+      
+      return res.status(200).json({
+        success: true,
+        message: `User role updated to ${normalizedRole}`,
+        data: updatedUser,
+      });
+    } catch (dbError) {
+      console.error('Database error during update:', dbError);
+      throw dbError;
+    }
   } catch (error) {
     console.error("Error updating user role:", error);
-    res.status(500).json({ error: "Failed to update user role" });
+    const errorResponse = {
+      success: false,
+      error: "Failed to update user role",
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+    };
+    
+    console.error('Error response:', JSON.stringify(errorResponse, null, 2));
+    return res.status(500).json(errorResponse);
   }
 };

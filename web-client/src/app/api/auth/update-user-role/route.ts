@@ -1,21 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 
 /**
- * Endpoint untuk mengubah role pengguna - hanya dapat diakses oleh admin atau dengan kunci keamanan
+ * Endpoint untuk mengubah role pengguna - hanya dapat diakses oleh admin
  */
 export async function POST(request: NextRequest) {
   try {
-    const { email, role, secretKey } = await request.json()
+    // Dapatkan token dari cookie
+    const token = cookies().get('authToken')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Tidak terautentikasi' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
+    const { userId, role } = await request.json();
     
     // Validasi input
-    if (!email || !role) {
+    if (!userId || !role) {
       return NextResponse.json(
-        { error: 'Email dan role diperlukan' },
+        { error: 'User ID dan role diperlukan' },
         { status: 400 }
-      )
+      );
     }
     
     // Validasi role value
@@ -23,75 +34,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Role tidak valid. Hanya ADMIN atau USER yang diizinkan' },
         { status: 400 }
-      )
+      );
     }
     
-    // Periksa autentikasi (token atau kunci rahasia)
-    let isAuthorized = false
+    // Siapkan headers untuk request ke backend
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
     
-    // Cek kunci admin
-    const ADMIN_CREATION_KEY = process.env.ADMIN_CREATION_KEY || 'rahasia-admin-msta-2024'
-    if (secretKey === ADMIN_CREATION_KEY) {
-      isAuthorized = true
-    } else {
-      // Cek token jika tidak menggunakan secret key
-      const token = cookies().get('authToken')?.value
-      
-      if (!token) {
-        return NextResponse.json(
-          { error: 'Tidak terautentikasi' },
-          { status: 401 }
-        )
-      }
-      
-      // Verifikasi token
-      const verifyResponse = await fetch(`${AUTH_SERVICE_URL}/api/auth/verify`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (!verifyResponse.ok) {
-        return NextResponse.json(
-          { error: 'Token tidak valid' },
-          { status: 401 }
-        )
-      }
-      
-      const { user } = await verifyResponse.json()
-      
-      // Hanya admin yang bisa mengubah role
-      if (user.role !== 'ADMIN') {
-        return NextResponse.json(
-          { error: 'Tidak memiliki izin untuk mengubah role pengguna' },
-          { status: 403 }
-        )
-      }
-      
-      isAuthorized = true
+    // Tambahkan admin secret key jika mengubah ke role ADMIN
+    if (role === 'ADMIN') {
+      const ADMIN_CREATION_KEY = process.env.ADMIN_CREATION_KEY || 'rahasia-admin-msta-2024';
+      headers['admin-secret-key'] = ADMIN_CREATION_KEY;
     }
     
-    if (!isAuthorized) {
+    // Kirim request ke backend service
+    const response = await fetch(`${AUTH_SERVICE_URL}/api/admin/update-role`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ userId, role })
+    });
+
+    // Jika response tidak OK, lempar error
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: 'Tidak memiliki izin untuk mengubah role pengguna' },
-        { status: 403 }
-      )
+        { 
+          error: errorData.error || 'Gagal mengupdate role pengguna',
+          details: errorData.details
+        },
+        { status: response.status }
+      );
     }
-    
-    // Dalam implementasi sebenarnya, ini akan terhubung ke database
-    // Untuk sementara, berikan respons sukses palsu
-    return NextResponse.json({
-      success: true, 
-      message: `Role untuk pengguna ${email} berhasil diubah menjadi ${role}`,
-      email,
-      role
-    })
+
+    // Jika berhasil, kembalikan response dari backend
+    const data = await response.json();
+    return NextResponse.json(data);
     
   } catch (error) {
-    console.error('Error updating user role:', error)
+    console.error('Error updating user role:', error);
     return NextResponse.json(
-      { error: 'Terjadi kesalahan saat mengubah role pengguna' },
+      { 
+        error: 'Terjadi kesalahan saat mengubah role pengguna',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
-    )
+    );
   }
-} 
+}

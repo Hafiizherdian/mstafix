@@ -68,7 +68,10 @@ class MessageQueueService {
   }
 
   async publishQuestionCreated(question: any) {
-    if (!this.channel) return;
+    if (!this.channel) {
+      console.error('Cannot publish message: RabbitMQ channel is not available.');
+      throw new Error('Cannot publish message: RabbitMQ channel is not available.');
+    }
 
     const message: QuestionMessage = {
       type: 'SOAL_GENERATED',

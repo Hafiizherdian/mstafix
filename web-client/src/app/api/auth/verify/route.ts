@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const API_GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://api-gateway:3000';
 
 export async function GET(request: Request) {

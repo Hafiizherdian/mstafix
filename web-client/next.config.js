@@ -38,14 +38,27 @@ const nextConfig = {
   },
   async rewrites() {
     return [
+      // Route untuk admin
       {
-        source: "/api/manage-soal/:path*",
+        source: "/api/admin/:path*",
+        destination: "http://api-gateway:3000/api/admin/:path*",
+      },
+      // Route untuk manage soal
+                  {
+        source: "/api/v1/manage-soal/:path*",
         destination: "http://api-gateway:3000/api/v1/manage-soal/:path*",
       },
+      // Route untuk notification service
+      {
+        source: "/api/v1/notifications/:path*",
+        destination: "http://api-gateway:3000/api/v1/notifications/:path*",
+      },
+      // Route untuk generate soal
       {
         source: "/api/generate-soal/:path*",
         destination: "http://api-gateway:3000/api/v1/generate-soal/:path*",
       },
+      // Route untuk autentikasi
       {
         source: "/api/auth/:path*",
         destination: "http://api-gateway:3000/api/v1/auth/:path*",

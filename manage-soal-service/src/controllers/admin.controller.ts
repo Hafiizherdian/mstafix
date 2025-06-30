@@ -321,18 +321,25 @@ export const getQuestionsAdmin = async (
 
     const totalPages = Math.ceil(totalQuestions / limitNum);
 
+    // Format response sesuai standar API
     return res.json({
-      questions,
-      pagination: {
-        total: totalQuestions,
+      success: true,
+      data: {
+        items: questions,
         page: pageNum,
         limit: limitNum,
+        total: totalQuestions,
         totalPages,
       },
+      message: 'Questions retrieved successfully'
     });
   } catch (error) {
     console.error("Error fetching questions:", error);
-    return res.status(500).json({ error: "Failed to fetch questions" });
+    return res.status(500).json({ 
+      success: false,
+      error: "Failed to fetch questions",
+      message: "An error occurred while fetching questions"
+    });
   }
 };
 
@@ -370,7 +377,89 @@ export const deleteQuestion = async (
     });
   } catch (error) {
     console.error("Error deleting question:", error);
-    return res.status(500).json({ error: "Failed to delete question" });
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Get a single question by ID
+export const getQuestionById = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { questionId } = req.params;
+
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+    });
+
+    if (!question) {
+      return res.status(404).json({ success: false, message: 'Question not found' });
+    }
+    
+    // Return the full question object
+    return res.json({ success: true, data: question });
+
+  } catch (error) {
+    console.error("Error fetching question by ID:", error);
+    return res.status(500).json({ success: false, message: "Failed to fetch question" });
+  }
+};
+
+// Update a question by ID
+export const updateQuestionAdmin = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { questionId } = req.params;
+    const data = req.body;
+
+    // First, check if the question exists
+    const existingQuestion = await prisma.question.findUnique({
+      where: { id: questionId },
+    });
+
+    if (!existingQuestion) {
+      return res.status(404).json({ success: false, message: "Question not found" });
+    }
+    
+    // Prepare the data for update, ensuring only valid fields are included
+    const updateData: { [key: string]: any } = {};
+    const allowedFields = ['question', 'answer', 'explanation', 'category', 'difficulty', 'type', 'status', 'options'];
+    
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) {
+        updateData[field] = data[field];
+      }
+    }
+
+    // Ensure category is lowercase
+    if (updateData.category) {
+      updateData.category = updateData.category.toLowerCase();
+    }
+
+    // Always set the updatedAt timestamp
+    updateData.updatedAt = new Date();
+
+    // Perform the update
+    const updatedQuestion = await prisma.question.update({
+      where: { id: questionId },
+      data: updateData,
+    });
+
+    return res.json({
+      success: true,
+      data: updatedQuestion,
+      message: "Question updated successfully",
+    });
+
+  } catch (error) {
+    console.error("Error updating question:", error);
+    return res.status(500).json({ 
+        success: false, 
+        message: "Failed to update question" 
+    });
   }
 };
 
@@ -515,11 +604,11 @@ export const getQuestionAnalytics = async (
       }),
       prisma.$queryRaw<Array<{ date: Date; count: bigint }>>`
         SELECT
-          DATE(createdAt) as date,
+          DATE("createdAt") as date,
           COUNT(*) as count
         FROM "Question"
-        WHERE createdAt >= ${startDate}
-        GROUP BY DATE(createdAt)
+        WHERE "createdAt" >= ${startDate}
+        GROUP BY DATE("createdAt")
         ORDER BY date ASC
       `,
       prisma.question.findMany({
@@ -538,69 +627,23 @@ export const getQuestionAnalytics = async (
     ]);
 
     const analytics = {
-      overview: {
-        total: totalQuestions,
-        inPeriod: questionsInPeriod,
-        today: questionsToday,
-        growth: {
-          absolute: questionsInPeriod,
-          percentage:
-            totalQuestions > 0
-              ? Number(((questionsInPeriod / totalQuestions) * 100).toFixed(1))
-              : 0,
-        },
-      },
-      categoryDistribution: categoryStats.map((item) => ({
+      total: totalQuestions,
+      byCategory: categoryStats.map((item) => ({
         category: item.category,
         count: item._count.id,
-        percentage:
-          totalQuestions > 0
-            ? Number(((item._count.id / totalQuestions) * 100).toFixed(1))
-            : 0,
       })),
-      difficultyDistribution: difficultyStats.map((item) => ({
+      byDifficulty: difficultyStats.map((item) => ({
         difficulty: item.difficulty,
         count: item._count.id,
-        percentage:
-          totalQuestions > 0
-            ? Number(((item._count.id / totalQuestions) * 100).toFixed(1))
-            : 0,
       })),
-      typeDistribution: typeStats.map((item) => ({
-        type: item.type,
-        count: item._count.id,
-        percentage:
-          totalQuestions > 0
-            ? Number(((item._count.id / totalQuestions) * 100).toFixed(1))
-            : 0,
+      recent: recentQuestions.map((question) => ({
+        id: question.id,
+        question: question.question,
+        category: question.category,
+        difficulty: question.difficulty,
+        type: question.type,
+        createdAt: question.createdAt,
       })),
-      trends: {
-        questions: creationActivity.map((item) => ({
-          date: item.date.toISOString().split("T")[0],
-          count: Number(item.count),
-        })),
-      },
-      recentActivity: recentQuestions.map((question) => ({
-        id: `question-${question.id}`,
-        type: "question_creation",
-        action: `Created ${question.difficulty} question`,
-        description: `New ${question.difficulty} question added to ${question.category}`,
-        user: question.createdBy || "System",
-        target: question.question.substring(0, 50) + "...",
-        timestamp: question.createdAt,
-        status: "COMPLETED",
-        metadata: {
-          questionId: question.id,
-          category: question.category,
-          difficulty: question.difficulty,
-          type: question.type,
-        },
-      })),
-      period,
-      dateRange: {
-        start: startDate,
-        end: now,
-      },
     };
 
     return res.json(analytics);

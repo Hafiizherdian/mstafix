@@ -1,8 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { createRequestLogger } from '@/lib/logger';
 
 export async function POST(request: Request) {
+  const logger = createRequestLogger('generate-soal', request);
+  
   try {
+    logger.info('Menerima permintaan generate soal baru');
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const category = formData.get('category') as string;
@@ -15,6 +19,7 @@ export async function POST(request: Request) {
     const authToken = cookieStore.get('authToken')?.value;
 
     if (!authToken) {
+      logger.warn('Permintaan tanpa token autentikasi', { statusCode: 401 });
       return Response.json(
         { error: 'Sesi Anda telah berakhir. Silakan login kembali.' },
         { status: 401 }
@@ -28,10 +33,14 @@ export async function POST(request: Request) {
 
     // Make sure only one source is provided
     if (file && category) {
-      throw new Error('Harap pilih salah satu: file atau kategori');
+      const errorMsg = 'Harap pilih salah satu: file atau kategori';
+      logger.warn(errorMsg, { hasFile: !!file, hasCategory: !!category });
+      throw new Error(errorMsg);
     }
     if (!file && !category) {
-      throw new Error('Harap sertakan file atau kategori');
+      const errorMsg = 'Harap sertakan file atau kategori';
+      logger.warn(errorMsg);
+      throw new Error(errorMsg);
     }
 
     let prompt = '';
@@ -39,22 +48,26 @@ export async function POST(request: Request) {
     // Handle file content first
     if (file) {
       try {
-        // Log file information for debugging
-        console.log('File info:', {
-          name: file.name,
-          type: file.type,
-          size: file.size
+        logger.info('Memproses file upload', {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size
         });
 
         // Validate file type and size
         const allowedTypes = ['text/plain', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
         if (!allowedTypes.includes(file.type) && !file.name.match(/\.(txt|pdf|doc|docx)$/i)) {
-          throw new Error('Format file tidak didukung. Gunakan TXT, PDF, DOC, atau DOCX.');
+          const errorMsg = 'Format file tidak didukung. Gunakan TXT, PDF, DOC, atau DOCX.';
+          logger.warn(errorMsg, { fileType: file.type, fileName: file.name });
+          throw new Error(errorMsg);
         }
 
         // Batasi ukuran file maksimum menjadi 8MB
-        if (file.size > 8 * 1024 * 1024) { // 8MB limit
-          throw new Error('Ukuran file terlalu besar. Maksimal 8MB.');
+        const maxFileSize = 8 * 1024 * 1024; // 8MB
+        if (file.size > maxFileSize) {
+          const errorMsg = 'Ukuran file terlalu besar. Maksimal 8MB.';
+          logger.warn(errorMsg, { fileSize: file.size, maxFileSize });
+          throw new Error(errorMsg);
         }
 
         // Buat prompt untuk AI langsung tanpa ekstraksi file terlebih dahulu
@@ -102,10 +115,10 @@ export async function POST(request: Request) {
             prompt += '\n\n[Konten file terlalu panjang dan telah dipotong]';
           }
         } catch (error) {
-          console.log('Tidak dapat mengekstrak teks dari file, melanjutkan dengan prompt saja');
+          logger.error('Tidak dapat mengekstrak teks dari file', { error });
         }
       } catch (error) {
-        console.error('File processing error:', error);
+        logger.error('File processing error', { error });
         throw new Error('Gagal memproses file. Pastikan file dalam format yang benar dan tidak rusak.');
       }
     }
@@ -141,7 +154,19 @@ export async function POST(request: Request) {
     }
 
     // Process with AI model
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+    logger.debug('Environment Variables:', {
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? '***' : 'Not set',
+      NODE_ENV: process.env.NODE_ENV,
+      API_GATEWAY_URL: process.env.API_GATEWAY_URL
+    });
+
+    const apiKey = process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      logger.error('Google API Key tidak ditemukan di environment variables');
+      throw new Error('Konfigurasi sistem belum lengkap. Silakan hubungi administrator.');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Set safety settings
@@ -151,7 +176,11 @@ export async function POST(request: Request) {
       topK: 40,
     };
 
-    console.log('Sending prompt to AI...');
+    logger.info('Mengirim permintaan ke AI', {
+      model: 'gemini-1.5-flash',
+      config: generationConfig,
+      promptLength: prompt.length
+    });
 
     try {
       const result = await model.generateContent({
@@ -161,13 +190,15 @@ export async function POST(request: Request) {
       
       const response = await result.response;
       const text = response.text();
-      console.log('Raw text length:', text.length);
+      logger.debug('Menerima respons dari AI', { responseLength: text.length });
       
       try {
         // Extract JSON from response
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          console.error('No valid JSON found in response:', text);
+          logger.error('Format respons AI tidak valid', { 
+            responsePreview: text.substring(0, 500) 
+          });
           throw new Error('Respons AI tidak valid. Silakan coba lagi.');
         }
 
@@ -177,14 +208,18 @@ export async function POST(request: Request) {
         try {
           jsonResponse = JSON.parse(jsonStr);
         } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          console.error('Raw JSON string:', jsonStr);
+          logger.error('Gagal parsing JSON dari respons AI', { 
+            error: parseError,
+            jsonPreview: jsonStr.substring(0, 200) 
+          });
           throw new Error('Format JSON tidak valid. Silakan coba lagi.');
         }
         
         // Validate response structure
         if (!jsonResponse?.questions?.length) {
-          console.error('Invalid response structure:', jsonResponse);
+          logger.error('Struktur respons AI tidak valid', { 
+            response: jsonResponse 
+          });
           throw new Error('Struktur respons tidak valid. Silakan coba lagi.');
         }
 
@@ -201,13 +236,19 @@ export async function POST(request: Request) {
           status: 'DRAFT'
         }));
 
-        console.log('Berhasil mengekstrak dan memformat soal');
-        console.log(`Jumlah soal yang dibuat: ${questions.length}`);
+        logger.info('Berhasil membuat soal', { 
+          questionCount: questions.length,
+          questionType,
+          difficulty
+        });
 
         // SIMPAN KE DATABASE LANGSUNG (tidak menggunakan timeout)
         try {
           const gateway = process.env.API_GATEWAY_URL || 'http://api-gateway:3000';
-          console.log(`[INFO] Mengirim ${questions.length} soal ke manage-soal-service...`);
+          logger.info('Mengirim soal ke manage-soal-service', {
+            questionCount: questions.length,
+            targetService: 'manage-soal-service'
+          });
           
           const requestBody = {
             questions,
@@ -217,8 +258,11 @@ export async function POST(request: Request) {
             questionCount
           };
           
-          console.log(`[INFO] Endpoint target: ${gateway}/api/v1/manage-soal/questions`);
-          console.log(`[INFO] Token digunakan: ${authToken ? 'Ya (panjang: ' + authToken.length + ')' : 'Tidak'}`);
+          logger.debug('Detail koneksi ke manage-soal-service', {
+            endpoint: `${gateway}/api/v1/manage-soal/questions`,
+            hasAuthToken: !!authToken,
+            tokenLength: authToken?.length
+          });
           
           // Coba kirim langsung (tidak menggunakan setTimeout)
           const response = await fetch(
@@ -236,20 +280,19 @@ export async function POST(request: Request) {
           
           const responseText = await response.text();
           if (response.ok) {
-            console.log('[INFO] Berhasil menyimpan soal ke manage-soal-service');
-            try {
-              const jsonResponse = JSON.parse(responseText);
-              console.log(`[INFO] Response: Saved ${jsonResponse.length || 0} questions`);
-              console.log(`[INFO] Detail respons:`, jsonResponse);
-            } catch (e) {
-              console.log(`[INFO] Response (raw): ${responseText}`);
-            }
+            logger.info('Berhasil menyimpan soal ke database', {
+              savedCount: responseText ? JSON.parse(responseText)?.length || 0 : 0,
+              status: response.status
+            });
           } else {
-            console.error(`[ERROR] Gagal menyimpan soal ke manage-soal-service. Status: ${response.status}`);
-            console.error(`[ERROR] Response error: ${responseText}`);
+            logger.warn('Gagal menyimpan soal, mencoba koneksi alternatif', {
+              status: response.status,
+              error: responseText,
+              attempt: 'primary'
+            });
             
             // Coba akses langsung sebagai fallback
-            console.log('[INFO] Mencoba koneksi langsung ke service...');
+            logger.info('Mencoba koneksi langsung ke service...');
             const apiGatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3000';
             
             const directResponse = await fetch(
@@ -267,11 +310,16 @@ export async function POST(request: Request) {
             
             const directText = await directResponse.text();
             if (directResponse.ok) {
-              console.log('[INFO] Berhasil menyimpan soal melalui URL alternatif');
-              console.log(`[INFO] Direct response: ${directText}`);
+              logger.info('Berhasil menyimpan soal melalui URL alternatif', {
+                status: directResponse.status,
+                savedCount: directText ? JSON.parse(directText)?.length || 0 : 0
+              });
             } else {
-              console.error(`[ERROR] Gagal koneksi alternatif. Status: ${directResponse.status}`);
-              console.error(`[ERROR] Direct response error: ${directText}`);
+              logger.error('Gagal koneksi alternatif', {
+                status: directResponse.status,
+                error: directText,
+                attempt: 'fallback'
+              });
               
               // Tambahkan pesan error ke respons API
               return Response.json({ 
@@ -283,7 +331,7 @@ export async function POST(request: Request) {
             }
           }
         } catch (error) {
-          console.error('[ERROR] Error saat menyimpan soal:', error);
+          logger.error('Error saat menyimpan soal', { error });
           // Tambahkan pesan error ke respons API
           return Response.json({ 
             success: false,
@@ -300,22 +348,35 @@ export async function POST(request: Request) {
           questions: questions
         });
       } catch (error) {
-        console.error('Processing error:', error);
-        console.error('Raw text excerpt:', text.substring(0, 500));
+        logger.error('Kesalahan saat memproses respons AI', { 
+          error,
+          textPreview: text?.substring(0, 500) 
+        });
         return Response.json(
           { error: error instanceof Error ? error.message : 'Gagal memproses respons AI. Silakan coba lagi.' },
           { status: 500 }
         );
       }
     } catch (aiError) {
-      console.error('AI generation error:', aiError);
+      const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown error';
+      const errorStack = aiError instanceof Error ? aiError.stack : undefined;
+      
+      logger.error('Kesalahan generasi AI', { 
+        error: errorMessage,
+        stack: errorStack,
+        errorObject: JSON.stringify(aiError, Object.getOwnPropertyNames(aiError))
+      });
+      
       return Response.json(
-        { error: 'Gagal membuat soal dengan AI. Silakan coba lagi atau gunakan kata kunci yang berbeda.' },
+        { 
+          error: 'Gagal membuat soal dengan AI. Silakan coba lagi atau gunakan kata kunci yang berbeda.',
+          details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error('Generate error:', error);
+    logger.error('Kesalahan dalam proses generate soal', { error });
     return Response.json(
       { error: error instanceof Error ? error.message : 'Gagal membuat soal' },
       { status: 500 }

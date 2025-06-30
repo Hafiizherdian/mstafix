@@ -156,7 +156,7 @@ export default function ManageSoal() {
       console.log('[DEBUG] User ID untuk fetch soal:', userId);
       
       // Tambahkan createdBy ke URL untuk filter soal milik user saat ini
-      const uniqueUrl = `/api/manage-soal/questions?createdBy=${encodeURIComponent(userId)}&_t=${timestamp}`;
+            const uniqueUrl = `/api/v1/manage-soal/questions?createdBy=${encodeURIComponent(userId)}&_t=${timestamp}`;
       
       const response = await fetch(uniqueUrl, {
         headers: {
@@ -254,7 +254,7 @@ export default function ManageSoal() {
       
       console.log('[INFO] Menghapus soal dengan ID:', id)
       
-      const response = await fetch(`/api/manage-soal/${id}?ownerId=${encodeURIComponent(userId)}`, {
+            const response = await fetch(`/api/v1/manage-soal/${id}?ownerId=${encodeURIComponent(userId)}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authToken}`,

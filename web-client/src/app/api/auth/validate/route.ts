@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'; // Tambahkan ini
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {

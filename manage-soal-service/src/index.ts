@@ -1,30 +1,9 @@
-import express from "express";
-import cors from "cors";
-import questionRoutes from "./routes/question.routes";
-import adminRoutes from "./routes/admin.routes";
-import { PrismaClient } from "@prisma/client";
-import { messageQueue } from "./services/messageQueue";
+import app from './app';
+import { PrismaClient } from '@prisma/client';
+import { messageQueue } from './services/messageQueue';
 
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3003;
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log("Headers:", JSON.stringify(req.headers, null, 2));
-  console.log("Body:", req.body);
-  next();
-});
-
-// Routes
-app.use("/", questionRoutes);
-app.use("/admin", adminRoutes);
 
 async function startServer() {
   try {

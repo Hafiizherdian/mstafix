@@ -1,5 +1,6 @@
 import * as amqp from 'amqplib';
 import { Server, WebSocket } from 'ws';
+import { addActivity } from './activityStore';
 
 // 1. Deklarasikan interface yang diperluas
 interface ExtendedConnection extends amqp.Connection {
@@ -16,7 +17,14 @@ let wss: Server;
 
 interface NotificationMessage {
     type: string;
-    data: any;
+    data: {
+        user?: {
+            name: string;
+            email: string;
+            avatar?: string;
+        };
+        metadata?: Record<string, any>;
+    };
     timestamp?: Date;
 }
 
@@ -70,8 +78,20 @@ export async function setupMessageQueue(): Promise<void> {
         await channel.consume(QUEUE_NAME, async (msg: amqp.ConsumeMessage | null) => {
             try {
                 if (msg) {
-                    const notification = JSON.parse(msg.content.toString());
+                    const notification = JSON.parse(msg.content.toString()) as NotificationMessage;
+                    
+                    // Broadcast to WebSocket clients
                     await broadcastNotification(notification);
+                    
+                    // Save to activity store
+                    if (notification.data?.user) {
+                        addActivity({
+                            type: notification.type,
+                            user: notification.data.user,
+                            metadata: notification.data.metadata
+                        });
+                    }
+                    
                     channel.ack(msg);
                 }
             } catch (error) {

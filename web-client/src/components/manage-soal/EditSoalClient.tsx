@@ -375,7 +375,7 @@ export default function EditSoal() {
 
     try {
       // 1. Ambil soal tunggal untuk mendapatkan konteks batch (kategori)
-      const singleQuestionRes = await fetch(`/api/manage-soal/questions/${id}`, {
+            const singleQuestionRes = await fetch(`/api/v1/manage-soal/questions/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-User-ID': userId,
@@ -404,7 +404,7 @@ export default function EditSoal() {
       }
 
       // 2. Ambil semua soal dari batch (kategori) yang sama
-      const batchQuestionsRes = await fetch(`/api/manage-soal/questions?category=${encodeURIComponent(batchCategory)}&createdBy=${encodeURIComponent(userId)}`, {
+            const batchQuestionsRes = await fetch(`/api/v1/manage-soal/questions?category=${encodeURIComponent(batchCategory)}&createdBy=${encodeURIComponent(userId)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'X-User-ID': userId,
@@ -491,7 +491,7 @@ export default function EditSoal() {
         return;
       }
 
-      const response = await fetch(`/api/manage-soal/questions/${questionToSave.id}`, {
+            const response = await fetch(`/api/v1/manage-soal/questions/${questionToSave.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -605,7 +605,7 @@ export default function EditSoal() {
               toast.loading('Menghapus soal...', { id: 'delete-toast' });
               try {
                 const token = getToken();
-                const response = await fetch(`/api/manage-soal/delete`, {
+                                const response = await fetch(`/api/v1/manage-soal/delete`, {
                   method: 'DELETE',
                   headers: {
                     'Content-Type': 'application/json',

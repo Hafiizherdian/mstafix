@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
-import questionRoutes from './routes/question.routes'
+import questionRoutes from './routes/question.routes';
+import adminRoutes from './routes/admin.routes';
 
 const app = express()
 
@@ -25,6 +26,7 @@ app.use((req, _res, next) => {
 
 // Routes
 app.use('/', questionRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // Error handling
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

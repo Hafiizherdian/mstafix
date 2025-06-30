@@ -24,31 +24,42 @@ export function setNotificationService(service: NotificationService) {
 
 export const saveQuestion = async (questionData: any) => {
   try {
-    console.log('Saving question data:', questionData);
+    console.log('Processing question data:', questionData);
 
     // Handle both direct questions array and questions in request body
-    const questionsToSave = questionData.questions;
+    const questionsToSave = questionData.questions || [];
     if (!Array.isArray(questionsToSave)) {
       throw new Error('Questions must be an array');
+    }
+
+    if (questionsToSave.length === 0) {
+      console.warn('No questions to process');
+      return [];
     }
 
     // Buat timestamp yang sama untuk semua soal dalam batch ini
     const batchTimestamp = new Date();
 
-    // Hanya kirim notifikasi untuk setiap soal, TIDAK menyimpan ke database lokal
-    // Ini mencegah duplikasi karena manage-soal-service yang akan menyimpan soal
-    const questions = await Promise.all(
-      questionsToSave.map(async (q: any) => {
+    // Kirim notifikasi untuk setiap soal ke message queue
+    // Penyimpanan ke database akan dilakukan oleh manage-soal-service
+    const processedQuestions = [];
+    
+    for (const q of questionsToSave) {
+      try {
         // Validate required fields
         if (!q.question || !q.type || !q.difficulty) {
-          console.error('Invalid question data:', q);
-          throw new Error('Missing required question fields');
+          console.warn('Skipping invalid question data (missing required fields):', q);
+          continue;
         }
 
+        // Generate a temporary ID for tracking
+        const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        
         // Prepare data for notification
-        const data = {
+        const questionData = {
+          id: tempId,
           question: q.question,
-          options: q.type === 'MCQ' ? q.options : null,
+          options: q.type === 'MCQ' ? (q.options || []) : null,
           answer: q.answer || '',
           explanation: q.explanation || '',
           category: (q.category || 'uncategorized').toLowerCase(),
@@ -59,29 +70,36 @@ export const saveQuestion = async (questionData: any) => {
           updatedAt: batchTimestamp
         };
 
-        // Generate a temporary ID for logging purposes
-        const tempId = Math.random().toString(36).substring(2, 15);
-        console.log(`Question creation message sent: ${tempId}`);
+        console.log(`Sending question to message queue: ${tempId}`);
         
         // Send notification through message queue
-        await messageQueue.publishQuestionCreated({
-          id: tempId,
-          ...data
+        await messageQueue.publishQuestionCreated(questionData);
+        
+        // Add to processed questions
+        processedQuestions.push({
+          ...questionData,
+          status: 'queued',
+          message: 'Question queued for processing'
         });
+        
+      } catch (error) {
+        console.error(`Error processing question:`, error);
+        processedQuestions.push({
+          id: `error_${Date.now()}`,
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          originalData: q
+        });
+      }
+    }
 
-        // Return the data with tempId for response
-        return {
-          id: tempId,
-          ...data
-        };
-      })
-    );
-
-    console.log(`Successfully saved ${questions.length} questions`);
-    return questions;
+    console.log(`Processed ${processedQuestions.length} questions`);
+    return processedQuestions;
+    
   } catch (error) {
-    console.error('Save error:', error);
-    throw error;
+    console.error('Error in saveQuestion:', error);
+    // Re-throw with more context if needed
+    throw new Error(`Failed to process questions: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 

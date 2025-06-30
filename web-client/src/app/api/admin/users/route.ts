@@ -1,37 +1,55 @@
-// API Route: /api/admin/users
-// Forwards requests to the user-service to fetch all users.
-
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://127.0.0.1:3001/api/v1/users/all';
+// Ambil URL API Gateway dari environment variables
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL;
 
-export async function GET(request: Request) {
-  // For presentation purposes, we use a hardcoded token.
-  // In a real-world scenario, this should be handled by a proper auth utility or middleware.
-  const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ZDU5Y2U2My1jY2YxLTQzMmEtYmM1Yi0zODVjM2YxYjYxYmIiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3MTk1MzI4NzcsImV4cCI6MTcxOTUzMzA1N30.Y_2jH-gROBv5OC3t2s_2l52n-5aE0u2Hwz_ub3v-cK0';
+/**
+ * Menangani permintaan GET untuk mengambil daftar pengguna.
+ * Meneruskan permintaan ke API Gateway dengan menyertakan query params dan token otentikasi.
+ */
+export async function GET(request: NextRequest) {
+  // Pastikan API_GATEWAY_URL sudah di-set
+  if (!API_GATEWAY_URL) {
+    console.error('API_GATEWAY_URL environment variable is not set.');
+    return NextResponse.json(
+      { success: false, message: 'Konfigurasi API gateway tidak ditemukan.' },
+      { status: 500 }
+    );
+  }
+
+  // Ekstrak search parameters dari permintaan masuk
+  const { searchParams } = new URL(request.url);
+  const fullUrl = `${API_GATEWAY_URL}/api/admin/users?${searchParams.toString()}`;
+
+  // Ekstrak header Authorization dari permintaan masuk
+  const authToken = request.headers.get('Authorization');
 
   try {
-    console.log(`[UsersRoute] Forwarding GET request to ${USER_SERVICE_URL}`);
+    console.log(`[BFF /api/admin/users] Meneruskan permintaan ke API Gateway: ${fullUrl}`);
 
-    const response = await axios.get(USER_SERVICE_URL, {
+    const response = await axios.get(fullUrl, {
       headers: {
-        Authorization: `Bearer ${hardcodedToken}`,
+        // Teruskan header Authorization jika ada
+        ...(authToken && { Authorization: authToken }),
+        'Content-Type': 'application/json',
       },
+      timeout: 10000, // Tambahkan timeout untuk menghindari hang
     });
 
-    // The user-service is expected to return an object like { users: [...] }
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data, { status: response.status });
 
-  } catch (error) {
-    console.error('[UsersRoute] Error forwarding request to user-service:', error);
-    // Return a structured error response that the frontend can handle
-    return NextResponse.json(
-      {
-        message: 'Failed to fetch users from the user service.',
-        error: error instanceof Error ? error.message : 'An unknown error occurred.',
-      },
-      { status: 502 } // 502 Bad Gateway is appropriate for upstream errors
-    );
+  } catch (error: any) {
+    console.error('[BFF /api/admin/users] Gagal meneruskan permintaan ke API Gateway:', error.response?.data || error.message);
+
+    // Teruskan status dan pesan error dari gateway jika tersedia
+    const status = error.response?.status || 502;
+    const data = error.response?.data || {
+      success: false,
+      message: 'Gagal mengambil data pengguna dari API Gateway.',
+      error: error.message,
+    };
+
+    return NextResponse.json(data, { status });
   }
 }

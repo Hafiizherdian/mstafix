@@ -11,8 +11,8 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cors());
 
 // Routes
-app.use("/", questionRoutes);
-app.use("/admin", adminRoutes);
+app.use("/api/v1", questionRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 // Error handling sederhana
 app.use(

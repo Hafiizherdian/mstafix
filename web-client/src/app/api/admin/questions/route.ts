@@ -1,35 +1,70 @@
-// API Route: /api/admin/questions
-// Forwards requests to the manage-soal-service to fetch all questions.
+// src/app/api/admin/questions/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 
-import { NextResponse } from 'next/server';
-import axios from 'axios';
+/**
+ * Menangani permintaan GET untuk mengambil daftar pertanyaan.
+ * Meneruskan permintaan ke API Gateway menggunakan fetch API.
+ */
+export async function GET(request: NextRequest) {
+  const API_GATEWAY_URL = process.env.API_GATEWAY_URL;
 
-const QUESTION_SERVICE_URL = process.env.MANAGE_SOAL_SERVICE_URL || 'http://127.0.0.1:3003/api/v1/questions/all';
+  if (!API_GATEWAY_URL) {
+    console.error('API_GATEWAY_URL environment variable is not set.');
+    return NextResponse.json(
+      { success: false, message: 'Konfigurasi API gateway tidak ditemukan.' },
+      { status: 500 }
+    );
+  }
 
-export async function GET(request: Request) {
-  // For presentation purposes, we use a hardcoded token.
-  const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ZDU5Y2U2My1jY2YxLTQzMmEtYmM1Yi0zODVjM2YxYjYxYmIiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3MTk1MzI4NzcsImV4cCI6MTcxOTUzMzA1N30.Y_2jH-gROBv5OC3t2s_2l52n-5aE0u2Hwz_ub3v-cK0';
+  const { searchParams } = new URL(request.url);
+  const fullUrl = `${API_GATEWAY_URL}/api/admin/questions?${searchParams.toString()}`;
+  const authToken = request.headers.get('Authorization');
 
   try {
-    console.log(`[QuestionsRoute] Forwarding GET request to ${QUESTION_SERVICE_URL}`);
+    console.log(`[BFF /api/admin/questions] Meneruskan permintaan ke API Gateway: ${fullUrl}`);
 
-    const response = await axios.get(QUESTION_SERVICE_URL, {
+    const response = await fetch(fullUrl, {
       headers: {
-        Authorization: `Bearer ${hardcodedToken}`,
+        ...(authToken && { Authorization: authToken }),
+        'Content-Type': 'application/json',
       },
     });
 
-    // The question-service is expected to return an object like { questions: [...] }
-    return NextResponse.json(response.data);
+    // Coba parsing JSON, jika gagal, baca sebagai teks untuk melihat pesan error HTML
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      const errorText = await response.text();
+      console.error('[BFF /api/admin/questions] Gagal parsing JSON, respons mentah:', errorText);
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Respons tidak valid dari API Gateway.',
+          error: 'Unexpected token < in JSON at position 0',
+          rawError: errorText.substring(0, 500) // Kirim potongan error mentah
+        },
+        { status: response.status }
+      );
+    }
 
-  } catch (error) {
-    console.error('[QuestionsRoute] Error forwarding request to question-service:', error);
+    if (!response.ok) {
+      console.error('[BFF /api/admin/questions] Gagal meneruskan permintaan ke API Gateway:', data);
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data, { status: response.status });
+
+  } catch (error: any) {
+    console.error('[BFF /api/admin/questions] Terjadi kesalahan internal:', error);
+
     return NextResponse.json(
       {
-        message: 'Failed to fetch questions from the question service.',
-        error: error instanceof Error ? error.message : 'An unknown error occurred.',
+        success: false,
+        message: 'Gagal mengambil data pertanyaan dari API Gateway.',
+        error: error.message,
       },
-      { status: 502 } // 502 Bad Gateway for upstream errors
+      { status: 502 } // Bad Gateway
     );
   }
 }

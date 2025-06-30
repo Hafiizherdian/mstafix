@@ -25,6 +25,12 @@ interface Question {
 export async function GET(request: Request) {
   try {
     console.log("[DEBUG] GET /api/manage-soal/questions");
+    console.log("[DEBUG] Environment:", {
+      NODE_ENV: process.env.NODE_ENV,
+      API_GATEWAY_URL: process.env.API_GATEWAY_URL,
+      NEXT_PUBLIC_API_GATEWAY_URL: process.env.NEXT_PUBLIC_API_GATEWAY_URL,
+      MANAGE_SOAL_SERVICE_URL: process.env.MANAGE_SOAL_SERVICE_URL
+    });
 
     const cookieStore = cookies();
     const authToken =
@@ -54,9 +60,11 @@ export async function GET(request: Request) {
     // Tambahkan cache buster
     params.append("_t", Date.now().toString());
 
-    const apiGatewayUrl =
-      process.env.NEXT_PUBLIC_API_GATEWAY_URL || API_GATEWAY_URL;
+    // Gunakan API_GATEWAY_URL untuk server-side calls
+    const apiGatewayUrl = process.env.API_GATEWAY_URL || 'http://api-gateway:3000';
     const url = `${apiGatewayUrl}/api/v1/manage-soal/questions?${params.toString()}`;
+    
+    console.log('[DEBUG] Request URL:', url);
 
     const response = await fetch(url, {
       method: "GET",
@@ -79,32 +87,67 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[ERROR] Fetch failed:", errorText);
+      console.error("[ERROR] Fetch failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url,
+        error: errorText
+      });
       return NextResponse.json(
-        { error: "Gagal mengambil daftar soal" },
+        { 
+          error: `Gagal mengambil daftar soal (${response.status} ${response.statusText})`,
+          details: process.env.NODE_ENV === 'development' ? errorText : undefined
+        },
         { status: response.status },
       );
     }
 
-    const text = await response.text();
-    if (!text) {
-      return NextResponse.json(
-        { error: "Respons API kosong" },
-        { status: 500 },
-      );
-    }
-
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch (err) {
-      return NextResponse.json(
-        { error: "Format respons API tidak valid" },
-        { status: 500 },
-      );
-    }
+      const text = await response.text();
+      console.log('[DEBUG] Raw response text:', text.substring(0, 500) + (text.length > 500 ? '...' : ''));
+      
+      if (!text) {
+        console.error('[ERROR] Empty response body');
+        return NextResponse.json(
+          { error: "Respons API kosong" },
+          { status: 500 },
+        );
+      }
 
-    const items = Array.isArray(data) ? data : data.items || [];
+      try {
+        data = JSON.parse(text);
+        console.log('[DEBUG] Parsed response data:', JSON.stringify(data, null, 2).substring(0, 500) + '...');
+      } catch (parseError) {
+        console.error('[ERROR] Failed to parse JSON:', parseError);
+        return NextResponse.json(
+          { 
+            error: "Format respons API tidak valid",
+            details: process.env.NODE_ENV === 'development' ? text : undefined
+          },
+          { status: 500 },
+        );
+      }
+
+      // Handle both array and object responses
+      let items: any[] = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data && typeof data === 'object') {
+        if (Array.isArray(data.items)) {
+          items = data.items;
+        } else if (data.data && Array.isArray(data.data)) {
+          items = data.data;
+        } else if (data.questions && Array.isArray(data.questions)) {
+          items = data.questions;
+        } else {
+          // If no array found, try to use the object itself if it has an id
+          items = [data].filter(Boolean);
+        }
+      }
+
+    console.log(`[DEBUG] Processed ${items.length} items from response`);
+    
+    // Deduplicate items by ID
     const seen = new Set<string>();
     const uniqueItems: Question[] = [];
 
@@ -112,6 +155,8 @@ export async function GET(request: Request) {
       if (item?.id && !seen.has(item.id)) {
         seen.add(item.id);
         uniqueItems.push(item);
+      } else if (item?.id) {
+        console.log(`[DEBUG] Duplicate item ID skipped: ${item.id}`);
       }
     }
 

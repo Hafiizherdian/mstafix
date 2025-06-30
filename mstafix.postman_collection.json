@@ -1,0 +1,779 @@
+{
+  "info": {
+    "_postman_id": "mstafix-collection",
+    "name": "MSTAFIX API Collection",
+    "description": "Koleksi lengkap endpoint untuk MSTAFIX API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth Service",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\\n    \\\"email\\\": \\\"user@example.com\\\",\\n    \\\"password\\\": \\\"12345678\\\",\\n    \\\"name\\\": \\\"John Doe\\\"\\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/register",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "register"]
+                }
+              }
+            },
+            {
+              "name": "Login",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"12345678\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              }
+            },
+            {
+              "name": "Verify Token",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/verify",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "verify"]
+                }
+              }
+            },
+            {
+              "name": "Refresh Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/refresh",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "refresh"]
+                }
+              }
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/logout",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "logout"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Get All Users",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/users",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users"]
+                }
+              }
+            },
+            {
+              "name": "Create User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \\\"email\\\": \\\"newuser@example.com\\\",\n    \\\"password\\\": \\\"password123\\\",\n    \\\"name\\\": \\\"New User\\\",\n    \\\"role\\\": \\\"USER\\\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/admin/users",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users"]
+                }
+              }
+            },
+            {
+              "name": "Get User Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/users/stats",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users", "stats"]
+                }
+              }
+            },
+            {
+              "name": "Get User By ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/users/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users", "1"]
+                }
+              }
+            },
+            {
+              "name": "Update User",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Updated Name\",\n    \"email\": \"updated@example.com\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/admin/users/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users", "1"]
+                }
+              }
+            },
+            {
+              "name": "Delete User",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/users/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users", "1"]
+                }
+              }
+            },
+            {
+              "name": "Bulk Update Users",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"userIds\": [1, 2, 3],\n    \"updates\": {\n        \"status\": \"ACTIVE\"}\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/admin/users/bulk",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "users", "bulk"]
+                }
+              }
+            },
+            {
+              "name": "Get User Analytics",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/analytics/users",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "analytics", "users"]
+                }
+              }
+            },
+            {
+              "name": "Get System Health",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/admin/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "health"]
+                }
+              }
+            },
+            {
+              "name": "Update User Role",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"userId\": 1,\n    \"role\": \"ADMIN\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/admin/update-role",
+                  "host": ["{{base_url}}"],
+                  "path": ["admin", "update-role"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "User",
+          "item": [
+            {
+              "name": "Get All Users (Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users",
+                  "host": ["{{base_url}}"],
+                  "path": ["users"]
+                }
+              }
+            },
+            {
+              "name": "Get User Count",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/count",
+                  "host": ["{{base_url}}"],
+                  "path": ["users", "count"]
+                }
+              }
+            },
+            {
+              "name": "Get User Activity",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/activity",
+                  "host": ["{{base_url}}"],
+                  "path": ["users", "activity"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Generate Soal Service",
+      "item": [
+        {
+          "name": "Questions",
+          "item": [
+            {
+              "name": "Extract Content (PDF)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "/path/to/your/file.pdf"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/extract-content",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "extract-content"]
+                }
+              }
+            },
+            {
+              "name": "Create Questions",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"questions\": [\n        {\n            \"question\": \"Apa ibukota Indonesia?\",\n            \"options\": [\"Jakarta\", \"Bandung\", \"Surabaya\", \"Medan\"],\n            \"answer\": \"Jakarta\",\n            \"category\": \"Umum\",\n            \"difficulty\": \"easy\"\n        }\n    ]\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/questions",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "questions"]
+                }
+              }
+            },
+            {
+              "name": "Get Questions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/questions?category=Umum&difficulty=easy",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "questions"],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "Umum"
+                    },
+                    {
+                      "key": "difficulty",
+                      "value": "easy"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Question",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"question\": \"Apa ibukota Indonesia? (Updated)\",\n    \"options\": [\"Jakarta\", \"Bandung\", \"Surabaya\", \"Medan\"],\n    \"answer\": \"Jakarta\",\n    \"category\": \"Umum\",\n    \"difficulty\": \"easy\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/questions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "questions", "1"]
+                }
+              }
+            },
+            {
+              "name": "Delete Question",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/questions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "questions", "1"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin",
+          "item": [
+            {
+              "name": "Get Generation Analytics",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/admin/analytics/generations",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "admin", "analytics", "generations"]
+                }
+              }
+            },
+            {
+              "name": "Get System Health",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/generate-soal/admin/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["generate-soal", "admin", "health"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manage Soal Service",
+      "item": [
+        {
+          "name": "Questions",
+          "item": [
+            {
+              "name": "Get Question By ID",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions", "1"]
+                }
+              }
+            },
+            {
+              "name": "Add Questions",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"questions\": [\n        {\n            \"question\": \"Apa ibukota Indonesia?\",\n            \"options\": [\"Jakarta\", \"Bandung\", \"Surabaya\", \"Medan\"],\n            \"answer\": \"Jakarta\",\n            \"category\": \"Umum\",\n            \"difficulty\": \"easy\",\n            \"status\": \"DRAFT\"\n        }\n    ],\n    \"category\": \"Umum\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions"]
+                }
+              }
+            },
+            {
+              "name": "Get Questions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions?category=Umum&status=DRAFT",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions"],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "Umum"
+                    },
+                    {
+                      "key": "status",
+                      "value": "DRAFT"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Question",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"question\": \"Apa ibukota Indonesia? (Updated)\",\n    \"options\": [\"Jakarta\", \"Bandung\", \"Surabaya\", \"Medan\"],\n    \"answer\": \"Jakarta\",\n    \"category\": \"Umum\",\n    \"difficulty\": \"easy\",\n    \"status\": \"PUBLISHED\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions", "1"]
+                }
+              }
+            },
+            {
+              "name": "Delete Question",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions/1",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions", "1"]
+                }
+              }
+            },
+            {
+              "name": "Update Question Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "X-User-ID",
+                    "value": "1"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"status\": \"PUBLISHED\"}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/manage-soal/questions/1/status",
+                  "host": ["{{base_url}}"],
+                  "path": ["manage-soal", "questions", "1", "status"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notification Service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notification/health",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "health"]
+            }
+          }
+        },
+        {
+          "name": "Get Recent Activities",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notification/activities/recent?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "activities", "recent"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001/api/v1"
+    },
+    {
+      "key": "access_token",
+      "value": "your_access_token_here"
+    },
+    {
+      "key": "refresh_token",
+      "value": "your_refresh_token_here"
+    },
+    {
+      "key": "admin_token",
+      "value": "admin_access_token_here"
+    }
+  ]
+}

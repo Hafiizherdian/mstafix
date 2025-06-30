@@ -1,107 +1,115 @@
-// Reworked Question Management Page - Refactored to use AdminLayout
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Loader2, ServerCrash, HelpCircle, List, Tag, Type } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { Loader2, Plus, ServerCrash } from 'lucide-react';
+import { QuestionsTable, QuestionType } from '../components/questions/QuestionsTable';
+import { useQuestions } from '../hooks/useQuestions';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { toast } from 'sonner';
 
-// --- TypeScript Interface ---
-interface QuestionData {
-  id: string;
-  question: string;
-  category: string;
-  difficulty: 'MUDAH' | 'SEDANG' | 'SULIT';
-  type: 'PILIHAN_GANDA' | 'ISIAN_SINGKAT';
-  createdAt: string;
-}
-
-// --- API Configuration ---
-const API_QUESTIONS_URL = '/api/admin/questions';
-const hardcodedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ZDU5Y2U2My1jY2YxLTQzMmEtYmM1Yi0zODVjM2YxYjYxYmIiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3MTk1MzI4NzcsImV4cCI6MTcxOTUzMzA1N30.Y_2jH-gROBv5OC3t2s_2l52n-5aE0u2Hwz_ub3v-cK0';
-
-// --- Data Fetching Function ---
-async function getQuestions(): Promise<QuestionData[] | null> {
-  try {
-    const response = await axios.get(API_QUESTIONS_URL, {
-      headers: { Authorization: `Bearer ${hardcodedToken}` },
-    });
-    // The API is expected to return an object like { questions: [...] }
-    return response.data.questions;
-  } catch (error) {
-    console.error('[getQuestions] Failed to fetch questions:', error);
-    return null;
-  }
-}
-
-// --- Main Component ---
 export default function AdminQuestionsPage() {
-  const [questions, setQuestions] = useState<QuestionData[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const router = useRouter();
+  const [filters, setFilters] = useState({
+    search: '',
+    category: '',
+    status: 'ALL',
+    difficulty: 'ALL',
+    sortBy: 'createdAt',
+    sortOrder: 'desc' as const,
+    page: 1,
+    limit: 10,
+  });
 
-  useEffect(() => {
-    getQuestions().then(data => {
-      if (data) {
-        setQuestions(data);
-      } else {
-        setError(true);
-      }
-      setLoading(false);
-    });
-  }, []);
+  const { 
+    data: questions, 
+    loading, 
+    error, 
+    pagination, 
+    refetch 
+  } = useQuestions({
+    ...filters,
+    status: filters.status === 'ALL' ? undefined : filters.status,
+    difficulty: filters.difficulty === 'ALL' ? undefined : filters.difficulty,
+  });
 
-  // --- Render Loading State ---
+  const handleFilterChange = useCallback((newFilters: any) => {
+    setFilters(prev => ({
+      ...prev,
+      ...newFilters,
+      page: newFilters.page !== undefined ? newFilters.page : 1,
+    }));
+  }, []);  
+
+  const handleQuestionEdit = useCallback((question: QuestionType) => {
+    router.push(`/admin/questions/${question.id}`);
+  }, [router]);
+
+  const handleQuestionDelete = useCallback(async (id: string) => {
+    // TODO: Implement actual API call
+    console.log(`Request to delete question ${id}`);
+    toast.success('Soal berhasil dihapus (simulasi)');
+    await refetch();
+    return true;
+  }, [refetch]);
+
+  const handleQuestionStatusChange = useCallback(async (id: string, status: QuestionType['status']) => {
+    // TODO: Implement actual API call
+    console.log(`Request to change status of ${id} to ${status}`);
+    toast.success(`Status soal berhasil diubah menjadi ${status} (simulasi)`);
+    await refetch();
+  }, [refetch]);
+
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center h-full">
+      <div className="flex flex-1 items-center justify-center min-h-[60vh]">
         <Loader2 className="h-10 w-10 animate-spin text-cyan-400" />
-        <span className="ml-4 text-xl">Memuat Data Bank Soal...</span>
+        <span className="ml-4 text-xl">Memuat Data Soal...</span>
       </div>
     );
   }
 
-  // --- Render Error State ---
   if (error) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center h-full">
+      <div className="flex flex-col flex-1 items-center justify-center min-h-[60vh]">
         <ServerCrash className="h-16 w-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold">Gagal Memuat Bank Soal</h2>
-        <p className="text-zinc-400">Terjadi kesalahan saat mengambil data dari server.</p>
+        <h2 className="text-2xl font-bold mb-2">Gagal Memuat Soal</h2>
+        <p className="text-zinc-400 mb-6">{error}</p>
+        <Button onClick={refetch}>Coba Lagi</Button>
       </div>
     );
   }
 
-  // --- Render Main Content ---
   return (
-    <>
-      <h1 className="text-3xl font-bold mb-6 text-cyan-400">Kelola Bank Soal</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <List className="mr-2 h-6 w-6" />
-            Daftar Soal di Bank Soal
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {questions && questions.length > 0 ? (
-              questions.map((question) => (
-                <div key={question.id} className="p-4 bg-zinc-800 rounded-lg">
-                  <p className="font-semibold mb-2">{question.question}</p>
-                  <div className="flex items-center space-x-4 text-sm text-zinc-400">
-                    <span className="flex items-center"><Tag className="mr-1 h-4 w-4" /> {question.category}</span>
-                    <span className="flex items-center"><HelpCircle className="mr-1 h-4 w-4" /> {question.difficulty}</span>
-                    <span className="flex items-center"><Type className="mr-1 h-4 w-4" /> {question.type}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-zinc-500">Tidak ada soal untuk ditampilkan.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-200 to-white">Bank Soal</h1>
+          <p className="text-zinc-400 mt-2">
+            Kelola dan pantau semua soal yang tersedia dalam sistem.
+          </p>
+        </div>
+        <Button onClick={() => router.push('/admin/questions/new')}>
+          <Plus className="mr-2 h-4 w-4" />
+          Tambah Soal Baru
+        </Button>
+      </div>
+
+      {/* Questions Table Container */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+        <QuestionsTable
+          questions={questions as QuestionType[]}
+          loading={loading}
+          error={null} // Error is handled globally above
+          onQuestionEdit={handleQuestionEdit}
+          onQuestionDelete={handleQuestionDelete}
+          onQuestionStatusChange={handleQuestionStatusChange}
+          onFilterChange={handleFilterChange}
+          pagination={pagination}
+          refetchQuestions={refetch}
+        />
+      </div>
+    </div>
   );
 }
