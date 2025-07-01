@@ -45,10 +45,8 @@ app.use(
   },
 );
 
-// Routes dengan berbagai prefiks untuk kompatibilitas
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/auth", authRoutes); // Alternative route
+// Mount auth routes at the root to handle requests from the gateway
+app.use("/", authRoutes);
 
 // User routes untuk admin dashboard
 app.use("/api/v1/users", userRoutes);

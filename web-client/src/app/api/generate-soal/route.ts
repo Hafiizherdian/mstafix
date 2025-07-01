@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { createRequestLogger } from '@/lib/logger';
 
 export async function POST(request: Request) {
+  console.log('--- RUNNING LATEST VERSION OF GENERATE-SOAL ---');
   const logger = createRequestLogger('generate-soal', request);
   
   try {
@@ -14,9 +15,19 @@ export async function POST(request: Request) {
     const questionType = formData.get('questionType') as string;
     const questionCount = parseInt(formData.get('questionCount') as string);
 
-    // Get authentication token from cookies
+    // Get authentication token from Authorization header (priority) or cookies
+    const headersList = headers();
+    const authorizationHeader = headersList.get('authorization');
     const cookieStore = cookies();
-    const authToken = cookieStore.get('authToken')?.value;
+    
+    let authToken = '';
+    if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
+      logger.info('Menggunakan token dari Authorization header');
+      authToken = authorizationHeader.split(' ')[1];
+    } else {
+      logger.info('Mencari token dari cookies');
+      authToken = cookieStore.get('authToken')?.value || '';
+    }
 
     if (!authToken) {
       logger.warn('Permintaan tanpa token autentikasi', { statusCode: 401 });
@@ -362,9 +373,10 @@ export async function POST(request: Request) {
       const errorStack = aiError instanceof Error ? aiError.stack : undefined;
       
       logger.error('Kesalahan generasi AI', { 
-        error: errorMessage,
-        stack: errorStack,
-        errorObject: JSON.stringify(aiError, Object.getOwnPropertyNames(aiError))
+        errorMessage: aiError instanceof Error ? aiError.message : String(aiError),
+        errorStack: aiError instanceof Error ? aiError.stack : undefined,
+        // The raw error object might contain more details from the Google SDK
+        rawError: JSON.stringify(aiError, Object.getOwnPropertyNames(aiError))
       });
       
       return Response.json(

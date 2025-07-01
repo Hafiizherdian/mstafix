@@ -1,0 +1,88 @@
+PENAMBANGAN DATA (DATA MINING)
+
+(Penggalian Pola dari Data untuk Pengambilan Keputusan)
+1. Definisi
+
+Penambangan Data adalah proses mengekstraksi pola, informasi, atau pengetahuan dari dataset besar menggunakan metode statistik, matematika, dan kecerdasan buatan (AI).
+
+    Tujuan Utama:
+
+        Memprediksi tren (misal: penjualan masa depan).
+
+        Mengidentifikasi hubungan tersembunyi (misal: produk yang sering dibeli bersamaan).
+
+        Klasifikasi (misal: pelanggan berpotensi churn).
+
+    Analog Sederhana:
+
+        Seperti mencari jarum di tumpukan jerami, tetapi dengan alat yang bisa menemukan semua jarum sekaligus dan menjelaskan polanya.
+
+2. Langkah-Langkah Data Mining
+
+    Pengumpulan Data
+
+        Contoh: Data transaksi e-commerce, log pengguna, sensor IoT.
+
+    Pembersihan Data
+
+        Menghandle missing values, outlier, duplikat.
+
+    Transformasi Data
+
+        Normalisasi, encoding kategori (misal: gender jadi 0/1).
+
+    Pemilihan Metode
+
+        Sesuai tujuan: klasifikasi, clustering, asosiasi, dll.
+
+    Evaluasi & Interpretasi
+
+        Ukur akurasi model, visualisasi hasil.
+
+3. Metode Utama Data Mining
+a. Klasifikasi
+
+    Memprediksi kategori berdasarkan fitur.
+
+    Contoh:
+
+        Prediksi apakah email adalah spam atau bukan.
+
+        Algoritma: Decision Tree, SVM, Naive Bayes.
+
+b. Clustering
+
+    Pengelompokan data tanpa label.
+
+    Contoh:
+
+        Segmentasi pelanggan berdasarkan perilaku belanja.
+
+        Algoritma: K-Means, DBSCAN.
+
+c. Asosiasi
+
+    Mencari hubungan antar item.
+
+    Contoh:
+
+        Market Basket Analysis (misal: "Jika beli susu, 70% juga beli roti").
+
+        Algoritma: Apriori, FP-Growth.
+
+d. Regresi
+
+    Memprediksi nilai numerik.
+
+    Contoh:
+
+        Prediksi harga rumah berdasarkan luas dan lokasi.
+
+        Algoritma: Linear Regression, Random Forest.
+
+4. Contoh Aplikasi Dunia Nyata
+Industri	Contoh Penggunaan
+E-commerce	Rekomendasi produk (Amazon, Shopee).
+Kesehatan	Diagnosis penyakit berdasarkan gejala.
+Perbankan	Deteksi transaksi fraud.
+Manufaktur	Prediksi kerusakan mesin.

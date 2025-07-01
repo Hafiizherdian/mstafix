@@ -51,7 +51,7 @@ services:
       - app-network
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 3001"]
+      test: ["CMD-SHELL", "curl --fail http://localhost:3001/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

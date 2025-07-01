@@ -5,8 +5,12 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     
-    // Forward the registration request to auth service
-    const response = await fetch(`${process.env.AUTH_SERVICE_URL || 'http://localhost:3001'}/api/auth/register`, {
+    // Forward the registration request to the API Gateway
+    const apiGatewayUrl = process.env.API_GATEWAY_URL || 'http://api-gateway:3000';
+    const targetUrl = `${apiGatewayUrl}/api/v1/auth/register`;
+    console.log('Forwarding registration request to API Gateway:', targetUrl);
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -67,12 +67,88 @@ app.use(express.json());
 health(app);
 
 // Auth service routes (no auth required)
+// Auth service routes (no auth required)
 app.use('/api/v1/auth', 
   circuitBreaker(),
-  createProxyMiddleware({ 
+  createProxyMiddleware({
     target: process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
-    changeOrigin: true
-  })
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/auth': '', // Hapus prefix sebelum meneruskan
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      const targetPath = `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}${proxyReq.path}`;
+      console.log(`[DEBUG] Proxying to auth-service: ${req.method} ${req.originalUrl} -> ${targetPath}`);
+      
+      // Tulis ulang body jika sudah dibaca oleh express.json()
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type','application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy Error to auth-service:', err);
+      res.status(502).send('Proxy Error: Could not connect to auth service');
+    }
+  } as ExtendedProxyOptions)
+);
+
+// Generate soal service routes (protected)
+app.use('/api/v1/generate-soal', 
+  authMiddleware,
+  circuitBreaker(),
+  createProxyMiddleware({
+    target: process.env.GENERATE_SOAL_SERVICE_URL || 'http://generate-soal-service:3002',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/generate-soal': ''
+    },
+    onProxyReq: (proxyReq, req: Request, res: Response) => {
+      const targetPath = `${process.env.GENERATE_SOAL_SERVICE_URL || 'http://generate-soal-service:3002'}${proxyReq.path}`;
+      console.log(`[DEBUG] Proxying to generate-soal-service: ${req.method} ${req.originalUrl} -> ${targetPath}`);
+      
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type','application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy Error to generate-soal-service:', err);
+      res.status(502).send('Proxy Error: Could not connect to generate soal service');
+    }
+  } as ExtendedProxyOptions)
+);
+
+// Manage soal service routes (protected)
+app.use('/api/v1/manage-soal',
+  authMiddleware,
+  circuitBreaker(),
+  createProxyMiddleware({
+    target: process.env.MANAGE_SOAL_SERVICE_URL || 'http://manage-soal-service:3003',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/manage-soal': ''
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      const targetPath = `${process.env.MANAGE_SOAL_SERVICE_URL || 'http://manage-soal-service:3003'}${proxyReq.path}`;
+      console.log(`[DEBUG] Proxying to manage-soal-service: ${req.method} ${req.originalUrl} -> ${targetPath}`);
+      // Tulis ulang body jika sudah dibaca oleh express.json()
+      if (req.body) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type','application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy Error to manage-soal-service:', err);
+      res.status(502).send('Proxy Error: Could not connect to manage soal service');
+    }
+  } as ExtendedProxyOptions)
 );
 
 // Update role endpoint (protected)

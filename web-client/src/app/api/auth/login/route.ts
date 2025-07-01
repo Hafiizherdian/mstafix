@@ -5,11 +5,12 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log('Login attempt for:', body.email || 'unknown user');
     
-    // Forward the login request to auth service
-    const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
-    console.log('Forwarding login request to:', `${authServiceUrl}/api/auth/login`);
-    
-    const response = await fetch(`${authServiceUrl}/api/auth/login`, {
+    // Forward the login request to the API Gateway
+    const apiGatewayUrl = process.env.API_GATEWAY_URL || 'http://api-gateway:3000';
+    const targetUrl = `${apiGatewayUrl}/api/v1/auth/login`;
+    console.log('Forwarding login request to API Gateway:', targetUrl);
+
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
