@@ -4,36 +4,6 @@
 
 Mstafix adalah sebuah platform berbasis arsitektur microservices yang dirancang untuk manajemen soal. Aplikasi ini memisahkan setiap fungsi utama ke dalam layanan-layanan independen yang berkomunikasi secara sinkron (HTTP) dan asinkron (RabbitMQ), sehingga lebih mudah untuk dikembangkan, di-deploy, dan di-scale.
 
-## Diagram Arsitektur
-
-Berikut adalah gambaran sederhana dari alur komunikasi dalam sistem:
-
-```
-+--------------+      +---------------+      +-------------------------+
-|              |      |               |      |                         |
-|  Web Client  |----->|  API Gateway  |----->|      Auth Service       |
-|   (Next.js)  |      |   (Express)   |      | (Node.js, PostgreSQL)   |
-|              |      |               |      |                         |
-+--------------+      +-------+-------+      +-------------------------+
-                              |
-                              |      +-------------------------+
-                              |      |                         |
-                              +----->|   Manage Soal Service   |
-                              |      | (Node.js, PostgreSQL)   |
-                              |      |                         |
-                              |      +-----------+-------------+
-                              |                  |
-                              | (RabbitMQ)       | (RabbitMQ)
-                              |                  v
-+-------------------------+   |      +-----------+-------------+
-|                         |   |      |                         |
-| Generate Soal Service   |<--+      |   Notification Service  |
-| (Node.js, Google AI)    |          |       (Node.js)         |
-|                         |          |                         |
-+-------------------------+          +-------------------------+
-
-```
-
 ## Detail Teknologi
 
 | Layanan                   | Teknologi Utama                               |
