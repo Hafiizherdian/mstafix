@@ -19,7 +19,7 @@ export default function SetupAdmin() {
     email: "",
     password: "",
     name: "",
-    secretKey: "",
+    adminSecretKey: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +32,12 @@ export default function SetupAdmin() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          adminSecretKey: formData.adminSecretKey,
+        }),
       });
 
       const data = await response.json();
@@ -182,9 +187,9 @@ export default function SetupAdmin() {
                   id="secretKey"
                   type="password"
                   required
-                  value={formData.secretKey}
+                  value={formData.adminSecretKey}
                   onChange={(e) =>
-                    setFormData({ ...formData, secretKey: e.target.value })
+                    setFormData({ ...formData, adminSecretKey: e.target.value })
                   }
                   className="block w-full pl-10 pr-3 py-3 border border-zinc-800 rounded-lg
                     bg-zinc-900 text-white placeholder-zinc-500

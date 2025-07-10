@@ -39,6 +39,10 @@ services:
       context: ./auth-service
     ports:
       - "3001:3001"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     environment:
       - DATABASE_URL=postgresql://user:password@auth-db:5432/auth?schema=public
       - JWT_SECRET=${JWT_SECRET:-pUlrM6kCnz1KK2DUp6jo5lHQ0RAZ1iyGVfK1M1PW2AQ}

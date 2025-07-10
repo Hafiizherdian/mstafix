@@ -79,7 +79,7 @@ export default function AdminSidebar() {
         <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
           MSTA Admin
         </h1>
-        <p className="text-sm text-zinc-400 mt-1">Panel Administrasi</p>
+        <p className="text-sm text-zinc-400 mt-1">Panel Monitoring</p>
       </div>
       
       <nav className="flex-1 space-y-1">

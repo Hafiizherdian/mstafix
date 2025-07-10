@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 // Secret key untuk membuat admin pertama - seharusnya disimpan di environment variable
-// Tapi untuk demonstrasi kita gunakan nilai tetap
 const ADMIN_CREATION_KEY =
   process.env.ADMIN_CREATION_KEY || "rahasia-admin-msta-2024";
 const AUTH_SERVICE_URL =
@@ -11,10 +10,10 @@ const AUTH_SERVICE_URL =
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, secretKey } = body;
+    const { email, password, name, adminSecretKey } = body;
 
     // Verifikasi secret key
-    if (secretKey !== ADMIN_CREATION_KEY) {
+    if (adminSecretKey !== ADMIN_CREATION_KEY) {
       return NextResponse.json(
         { error: "Kunci keamanan tidak valid" },
         { status: 403 },
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Buat akun admin langsung dengan secret key
     const registerResponse = await fetch(
-      `${AUTH_SERVICE_URL}/api/auth/create-admin`,
+      `${AUTH_SERVICE_URL}/create-admin`,
       {
         method: "POST",
         headers: {
@@ -41,12 +40,29 @@ export async function POST(request: NextRequest) {
           email,
           password,
           name,
-          adminSecretKey: secretKey,
+          adminSecretKey: adminSecretKey,
         }),
       },
     );
 
-    const registerData = await registerResponse.json();
+    const rawText = await registerResponse.text();
+
+    // Log response mentah dari auth-service
+    console.log("Response from auth-service:", rawText);
+
+    let registerData;
+    try {
+      registerData = JSON.parse(rawText);
+    } catch (e) {
+      console.error("Gagal parse JSON dari auth-service:", e);
+      return NextResponse.json(
+        {
+          error: "Invalid response dari auth-service (bukan JSON)",
+          raw: rawText,
+        },
+        { status: 502 },
+      );
+    }
 
     if (!registerResponse.ok) {
       return NextResponse.json(
@@ -74,7 +90,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating admin account:", error);
     return NextResponse.json(
-      { error: "Terjadi kesalahan saat membuat akun admin" },
+      {
+        error: "Terjadi kesalahan saat membuat akun admin",
+        detail: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }
