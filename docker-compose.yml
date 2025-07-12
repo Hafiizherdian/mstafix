@@ -66,6 +66,10 @@ services:
     build: ./generate-soal-service
     ports:
       - "3002:3002"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     environment:
       - DATABASE_URL=postgresql://user:password@generate-soal-db:5432/generate_soal
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672

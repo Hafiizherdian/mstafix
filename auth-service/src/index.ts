@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
 import adminRoutes from "./routes/admin.routes";
+import { notificationService } from "./services/notification.service";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -117,6 +118,9 @@ app.use(
 );
 
 // Start server
+// Connect to RabbitMQ
+notificationService.connect();
+
 app.listen(port, () => {
   console.log(`Auth service running at http://localhost:${port}`);
   console.log(`Database URL: ${process.env.DATABASE_URL || "Not set"}`);

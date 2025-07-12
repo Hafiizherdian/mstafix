@@ -67,15 +67,15 @@ export const STATUS_LABELS = {
 } as const;
 
 export const DIFFICULTY_COLORS = {
-  EASY: 'bg-green-100 text-green-800 hover:bg-green-200',
-  MEDIUM: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200',
-  HARD: 'bg-red-100 text-red-800 hover:bg-red-200'
+  EASY: 'bg-green-500/20 text-green-300 hover:bg-green-500/30',
+  MEDIUM: 'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30',
+  HARD: 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
 } as const;
 
 export const STATUS_COLORS = {
-  DRAFT: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
-  PUBLISHED: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-  ARCHIVED: 'bg-purple-100 text-purple-800 hover:bg-purple-200'
+  DRAFT: 'bg-zinc-700/60 text-zinc-300 hover:bg-zinc-700/80',
+  PUBLISHED: 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30',
+  ARCHIVED: 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
 } as const;
 
 export type Difficulty = keyof typeof DIFFICULTY_LABELS;
@@ -124,6 +124,12 @@ export interface QuestionsTableProps {
     hasPreviousPage: boolean;
   };
   refetchQuestions: () => Promise<void>;
+  stats?: {
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+  };
 }
 
 export type FilterState = {
@@ -154,564 +160,559 @@ const toast = {
 const componentLogger = logger.child({ component: 'QuestionsTable' });
 
 export function QuestionsTable({
-  questions = [],
-  loading = false,
-  error = null,
+  questions: initialQuestions = [],
+  loading: initialLoading = false,
   onQuestionEdit,
   onQuestionDelete,
   onQuestionStatusChange,
   onFilterChange,
-  pagination,
-  refetchQuestions
+  pagination: initialPagination,
+  refetchQuestions,
+  stats
 }: QuestionsTableProps) {
+  const {
+    data: questions,
+    loading,
+    error,
+    pagination,
+    filters,
+    setFilters,
+    refetch
+  } = useQuestions();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery] = useDebounce(searchQuery, 500);
-  const categories = useMemo(() => {
-    const uniqueCategories = new Set<string>();
-    questions.forEach(q => {
-      if (q.category) uniqueCategories.add(q.category);
-    });
-    return Array.from(uniqueCategories).sort();
-  }, [questions]);
-  const initialFilters: FilterState = {
-    search: '',
-    category: '',
-    status: 'ALL',
-    difficulty: 'ALL',
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-    page: 1,
-    limit: 10,
-  };
-  
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
-  const [sortConfig, setSortConfig] = useState<NullableSortConfig>({
-    key: 'createdAt',
-    direction: 'desc',
-  } as SortConfig);
-  const [questionToDelete, setQuestionToDelete] = useState<QuestionType | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(loading);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; question: QuestionType | null }>({ open: false, question: null });
 
-  const handleFilterChange = useCallback((updated: Partial<FilterState>) => {
-    setFilters(prevFilters => {
-      const newFilters: FilterState = { 
-        ...prevFilters, 
-        ...updated,
-        // Ensure page is reset when filters change
-        ...(Object.keys(updated).some(k => k !== 'page' && k !== 'limit') 
-          ? { page: 1 } 
-          : {})
-      };
-      
-      onFilterChange?.(newFilters);
-      
-      componentLogger.debug('Filters updated', { 
-        previousFilters: prevFilters,
-        updates: updated,
-        newFilters
-      });
-      
-      return newFilters;
-    });
-  }, [onFilterChange]);
+  useEffect(() => {
+    setFilters({ search: debouncedSearchQuery });
+  }, [debouncedSearchQuery, setFilters]);
 
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    
-    // Update search filter immediately
-    handleFilterChange({ search: value || undefined });
-    
-    componentLogger.debug('Search query changed', { value });
-  }, [handleFilterChange]);
-
-  const handleSort = useCallback((field: keyof QuestionType) => {
-    componentLogger.info('Sorting requested', { field, currentSort: sortConfig });
-    
-    setSortConfig(prevSort => {
-      const direction: SortDirection = 
-        prevSort?.key === field && prevSort.direction === 'asc' ? 'desc' : 'asc';
-      
-      const newSort: SortConfig = { key: field, direction };
-      
-      handleFilterChange({ 
-        sortBy: field, 
-        sortOrder: direction,
-        page: 1 // Reset to first page when sorting
-      });
-      
-      componentLogger.debug('Sort applied', { 
-        field, 
-        direction,
-        newSort 
-      });
-      
-      return newSort;
-    });
-  }, [handleFilterChange]);
-
-  const handleQuestionAction = useCallback(async (
-    action: 'edit' | 'publish' | 'archive',
-    question: QuestionType
-  ) => {
-    try {
-      setIsLoading(true);
-      
-      switch (action) {
-        case 'edit':
-          onQuestionEdit?.(question);
-          break;
-        case 'publish':
-        case 'archive':
-          const newStatus = action === 'publish' ? 'PUBLISHED' : 'ARCHIVED';
-          if (onQuestionStatusChange) {
-            await onQuestionStatusChange(question.id, newStatus as QuestionStatus);
-            await refetchQuestions();
-            toast.success(`Soal berhasil di${action === 'publish' ? 'terbitkan' : 'arsipkan'}`);
-          }
-          break;
-      }
-    } catch (err) {
-      const error = err as Error;
-      componentLogger.error(`Gagal melakukan aksi ${action}`, { 
-        error: error.message,
-        questionId: question.id 
-      });
-      toast.error(`Gagal melakukan aksi: ${error.message || 'Terjadi kesalahan'}`);
-    } finally {
-      setIsLoading(false);
+  const handleFilterChange = useCallback((key: keyof FilterState, value: string | number) => {
+    setFilters({ [key]: value });
+    if (onFilterChange) {
+      onFilterChange({ [key]: value });
     }
-  }, [onQuestionEdit, onQuestionStatusChange, refetchQuestions]);
+  }, [setFilters, onFilterChange]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setFilters({ page: newPage });
+    if (onFilterChange) {
+      onFilterChange({ page: newPage });
+    }
+  }, [setFilters, onFilterChange]);
+
+  const handleDelete = useCallback((question: QuestionType) => {
+    setDeleteDialog({ open: true, question });
+  }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!questionToDelete || !onQuestionDelete) return;
-    
-    try {
-      setIsDeleting(true);
-      const success = await onQuestionDelete(questionToDelete.id);
-      
-      if (success) {
-        toast.success('Soal berhasil dihapus');
-        componentLogger.info('Question deleted successfully', { 
-          questionId: questionToDelete.id 
-        });
-        await refetchQuestions();
-      } else {
-        throw new Error('Gagal menghapus soal');
-      }
-    } catch (err) {
-      const error = err as Error;
-      componentLogger.error('Failed to delete question', { 
-        error: error.message,
-        questionId: questionToDelete.id 
-      });
-      toast.error(`Gagal menghapus soal: ${error.message || 'Terjadi kesalahan'}`);
-    } finally {
-      setIsDeleting(false);
-      setIsDeleteDialogOpen(false);
-      setQuestionToDelete(null);
+    if (deleteDialog.question) {
+      await onQuestionDelete?.(deleteDialog.question.id);
+      setDeleteDialog({ open: false, question: null });
+      refetch();
     }
-  }, [questionToDelete, onQuestionDelete, refetchQuestions]);
+  }, [deleteDialog.question, onQuestionDelete, refetch]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteDialog({ open: false, question: null });
+  }, []);
+
+  const handleStatusChange = useCallback(async (questionId: string, newStatus: QuestionStatus) => {
+    await onQuestionStatusChange?.(questionId, newStatus);
+    refetch();
+  }, [onQuestionStatusChange, refetch]);
+
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setFilters({ limit: newLimit, page: 1 });
+    if (onFilterChange) {
+      onFilterChange({ limit: newLimit, page: 1 });
+    }
+  }, [setFilters, onFilterChange]);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    refetchQuestions();
+  }, [refetch, refetchQuestions]);
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-md p-4">
-        <div className="flex">
-          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
-          <div>
-            <h3 className="text-sm font-medium text-red-800">Gagal memuat data soal</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <p>{error}</p>
-            </div>
-            <div className="mt-4">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => window.location.reload()}
-                className="border-red-300 text-red-700 hover:bg-red-50"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Muat Ulang
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  // Render sort indicator
-  const renderSortIndicator = useCallback((field: keyof QuestionType) => {
-    if (!sortConfig || sortConfig.key !== field) return null;
-    return (
-      <span className="ml-1">
-        {sortConfig.direction === 'asc' ? '↑' : '↓'}
-      </span>
-    );
-  }, [sortConfig]);
-
-  // Render badge for status
-  const renderStatusBadge = (status: QuestionStatus, size: 'sm' | 'default' = 'default') => {
-    const statusConfig = STATUS_CONFIG[status] || {
-      label: status,
-      variant: 'default' as const,
-    };
-
-    return (
-      <Badge 
-        variant={statusConfig.variant} 
-        className={cn(
-          size === 'sm' ? 'h-5 text-[10px]' : 'h-6',
-          'whitespace-nowrap'
-        )}
-      >
-        {statusConfig.label}
-      </Badge>
-    );
-  };
-
-  // Render badge for difficulty
-  const renderDifficultyBadge = (difficulty: Difficulty, size: 'sm' | 'default' = 'default') => (
-    <span 
-      className={cn(
-        'px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap',
-        DIFFICULTY_COLORS[difficulty],
-      )}
-    >
-      {DIFFICULTY_LABELS[difficulty]}
-    </span>
-  );
-
-  // Render delete confirmation dialog
-  const renderDeleteDialog = () => (
-    <AlertDialog 
-      open={isDeleteDialogOpen} 
-      onOpenChange={(open) => {
-        if (!open) setIsDeleteDialogOpen(false);
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Hapus Soal</AlertDialogTitle>
-          <AlertDialogDescription>
-            Apakah Anda yakin ingin menghapus soal ini? Tindakan ini tidak dapat dibatalkan.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>
-            Batal
-          </AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={handleConfirmDelete}
-            disabled={isDeleting}
-            className="bg-destructive hover:bg-destructive/90"
-          >
-            {isDeleting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Menghapus...
-              </>
-            ) : 'Hapus'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-
-  return (
-    <div className="space-y-4">
-      {renderDeleteDialog()}
-      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Cari soal..."
-            className="pl-9 h-10 w-full text-sm"
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-full sm:w-auto justify-start">
-                <Filter className="h-4 w-4 mr-2" />
-                <span>Filter</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-3 py-2">
-                <p className="text-sm font-medium text-muted-foreground">Kategori</p>
-                <select
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={filters.category}
-                  onChange={(e) => handleFilterChange({ category: e.target.value })}
-                >
-                  <option value="all">Semua Kategori</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <DropdownMenuSeparator />
-              <div className="px-3 py-2">
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <select
-                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange({ 
-                    status: e.target.value as QuestionStatus | 'ALL' 
-                  })}
-                >
-                  <option value="ALL">Semua Status</option>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-zinc-400 text-sm px-4">
+        <AlertCircle className="h-8 w-8 text-red-400" />
+        <div className="flex flex-col items-center gap-2 max-w-md text-center">
+          <p className="text-red-400">Gagal memuat data soal</p>
+          <p className="text-zinc-400">Terjadi kesalahan saat memuat data. Silakan coba lagi.</p>
           <Button 
             variant="outline" 
             size="sm" 
-            className="h-9 w-full sm:w-auto"
-            onClick={() => {
-              setSearchQuery('');
-              handleFilterChange({
-                search: '',
-                category: 'all',
-                status: 'ALL',
-                difficulty: 'ALL',
-                page: 1
-              });
-            }}
+            onClick={handleRefresh}
+            className="mt-2 border-cyan-500 text-cyan-400 hover:bg-cyan-500/10"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            <span>Reset Filter</span>
+            <RefreshCw className="h-3 w-3 mr-1" /> Coba Lagi
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Total dari pagination mencerminkan total keseluruhan soal
+  const total = pagination.total;
+
+  return (
+    <div className="space-y-4 px-2 sm:px-4 py-4 sm:py-4 max-w-full overflow-hidden">
+      {/* Header */}
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="flex flex-col sm:items-start items-center">
+          <h2 className="text-lg sm:text-xl font-semibold text-zinc-100 text-center sm:text-left">Kelola Soal</h2>
+          <p className="text-xs sm:text-sm text-zinc-400 text-center sm:text-left">Total {total} soal</p>
+        </div>
+        <div className="flex gap-2 items-center justify-center sm:justify-start">
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={handleRefresh}
+            className="border-cyan-700 text-cyan-400 hover:bg-cyan-500/10 h-9 w-9 sm:w-auto sm:px-3"
+          >
+            <RefreshCw className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+          <Button 
+            size="sm" 
+            onClick={() => onQuestionEdit?.({ id: '', question: '', category: '', difficulty: 'EASY', status: 'DRAFT', createdAt: '', updatedAt: '' })}
+            className="h-9 bg-cyan-500/80 hover:bg-cyan-600/90 hover:scale-105 text-white transition-all duration-200 ease-in-out"
+          >
+            <FileQuestion className="h-4 w-4 mr-2" />
+            Buat Soal
           </Button>
         </div>
       </div>
 
-      <div className="rounded-md border overflow-hidden border-border bg-card">
-        <div className="relative overflow-x-auto">
-          <div className="absolute top-0 left-0 right-0 h-full flex items-center justify-center pointer-events-none">
-            <div className="bg-gradient-to-r from-transparent to-card/80 w-8 h-full right-0 absolute"></div>
-          </div>
-          <div className="overflow-x-auto pb-2 -mx-1 px-1">
-            <Table className="min-w-[800px] w-full">
-          <TableHeader className="bg-muted/50">
-            <TableRow>
-              <TableHead className="w-[80px] hidden sm:table-cell">ID</TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/30 transition-colors min-w-[200px]"
-                onClick={() => handleSort('question')}
-              >
-                <div className="flex items-center">
-                  Soal
-                  {renderSortIndicator('question')}
-                </div>
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/30 transition-colors hidden md:table-cell"
-                onClick={() => handleSort('category')}
-              >
-                <div className="flex items-center">
-                  Kategori
-                  {renderSortIndicator('category')}
-                </div>
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/30 transition-colors hidden lg:table-cell"
-                onClick={() => handleSort('difficulty')}
-              >
-                <div className="flex items-center">
-                  Kesulitan
-                  {renderSortIndicator('difficulty')}
-                </div>
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/30 transition-colors hidden sm:table-cell"
-                onClick={() => handleSort('status')}
-              >
-                <div className="flex items-center">
-                  Status
-                  {renderSortIndicator('status')}
-                </div>
-              </TableHead>
-              <TableHead className="w-[80px] sm:w-[100px] text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {questions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground px-4">
-                  {loading ? (
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span className="text-sm sm:text-base">Memuat data...</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center space-y-2">
-                      <FileQuestion className="h-8 w-8 text-muted-foreground/50" />
-                      <p className="text-sm sm:text-base">Tidak ada soal ditemukan</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => {
-                          setSearchQuery('');
-                          handleFilterChange({
-                            search: '',
-                            category: 'all',
-                            status: 'ALL',
-                            difficulty: 'ALL',
-                            page: 1
-                          });
-                        }}
-                      >
-                        Reset Filter
-                      </Button>
-                    </div>
-                  )}
-                </TableCell>
-              </TableRow>
-            ) : (
-              questions.map((question) => (
-                <TableRow 
-                  key={question.id} 
-                  className="hover:bg-muted/10 group border-b border-border last:border-b-0"
-                  onClick={() => onQuestionEdit?.(question)}
-                  role="button"
-                >
-                  <TableCell className="font-mono text-xs text-muted-foreground hidden sm:table-cell px-3 py-3">
-                    <div className="truncate w-16">{question.id.slice(0, 4)}...</div>
-                  </TableCell>
-                  <TableCell className="font-medium max-w-[300px] px-3 py-3">
-                    <div className="flex flex-col">
-                      <span className="truncate text-sm sm:text-base">{question.question}</span>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="px-2 py-0.5 bg-muted/80 text-muted-foreground rounded-md text-[10px] sm:text-xs">
-                          {question.category}
-                        </span>
-                        <div className="hidden xs:inline-flex">
-                          {renderDifficultyBadge(question.difficulty)}
-                        </div>
-                        <div className="hidden sm:inline-flex">
-                          {renderStatusBadge(question.status, 'sm')}
-                        </div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell px-3 py-3">
-                    <span className="px-2 py-0.5 bg-muted/80 text-muted-foreground rounded-md text-xs whitespace-nowrap">
-                      {question.category}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell px-3 py-3">
-                    {renderDifficultyBadge(question.difficulty)}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell px-3 py-3">
-                    {renderStatusBadge(question.status)}
-                  </TableCell>
-                  <TableCell className="px-3 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className="h-8 w-8 p-0 bg-muted/50 hover:bg-muted/80 transition-colors duration-200 rounded-md"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                          }}
-                        >
-                          <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                          <span className="sr-only">Menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent 
-                        align="end" 
-                        className="w-48 p-1.5 bg-popover border border-border shadow-lg rounded-lg z-[100]"
-                        sideOffset={8}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenuItem 
-                          className="flex items-center px-3 py-2.5 text-sm text-foreground hover:bg-accent rounded-md cursor-pointer"
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            handleQuestionAction('edit', question);
-                          }}
-                        >
-                          <FileEdit className="mr-2.5 h-4 w-4 text-muted-foreground" />
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-                        {question.status !== 'PUBLISHED' && (
-                          <DropdownMenuItem 
-                            className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuestionAction('publish', question);
-                            }}
-                          >
-                            <CheckCircle2 className="mr-2.5 h-4 w-4 text-emerald-500" />
-                            <span>Terbitkan</span>
-                          </DropdownMenuItem>
-                        )}
-                        {question.status !== 'ARCHIVED' && (
-                          <DropdownMenuItem 
-                            className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuestionAction('archive', question);
-                            }}
-                          >
-                            <Archive className="mr-2.5 h-4 w-4 text-amber-500" />
-                            <span>Arsipkan</span>
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator className="my-1 border-t border-gray-200" />
-                        <DropdownMenuItem 
-                          className="flex items-center px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setQuestionToDelete(question);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="mr-2.5 h-4 w-4 text-red-500" />
-                          <span>Hapus</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-            </Table>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="bg-zinc-700/20 border border-zinc-700/40 rounded-lg p-3 sm:p-4 flex flex-col justify-between overflow-hidden relative group hover:border-cyan-500/40 hover:bg-zinc-700/30 transition-all duration-300 ease-in-out">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-bl-full" />
+          <div>
+            <p className="text-xs sm:text-sm text-zinc-400 mb-1">Total Soal</p>
+            <p className="text-lg sm:text-xl font-bold text-cyan-400">{stats?.total ?? total}</p>
           </div>
         </div>
+        <div className="bg-zinc-700/20 border border-zinc-700/40 rounded-lg p-3 sm:p-4 flex flex-col justify-between overflow-hidden relative group hover:border-cyan-500/40 hover:bg-zinc-700/30 transition-all duration-300 ease-in-out">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-bl-full" />
+          <p className="text-xs sm:text-sm text-zinc-400 mb-1">Dipublikasi</p>
+          <p className="text-lg sm:text-xl font-bold text-green-400">{stats?.published ?? questions.filter(q => q.status === 'PUBLISHED').length}</p>
+        </div>
+        <div className="bg-zinc-700/20 border border-zinc-700/40 rounded-lg p-3 sm:p-4 flex flex-col justify-between overflow-hidden relative group hover:border-cyan-500/40 hover:bg-zinc-700/30 transition-all duration-300 ease-in-out">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-bl-full" />
+          <p className="text-xs sm:text-sm text-zinc-400 mb-1">Draft</p>
+          <p className="text-lg sm:text-xl font-bold text-yellow-400">{stats?.draft ?? questions.filter(q => q.status === 'DRAFT').length}</p>
+        </div>
+        <div className="bg-zinc-700/20 border border-zinc-700/40 rounded-lg p-3 sm:p-4 flex flex-col justify-between overflow-hidden relative group hover:border-cyan-500/40 hover:bg-zinc-700/30 transition-all duration-300 ease-in-out">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-full" />
+          <p className="text-xs sm:text-sm text-zinc-400 mb-1">Diarsipkan</p>
+          <p className="text-lg sm:text-xl font-bold text-purple-400">{stats?.archived ?? questions.filter(q => q.status === 'ARCHIVED').length}</p>
+        </div>
       </div>
+
+      {/* Search Bar */}
+      <div className="relative flex-1 md:max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+        <Input
+          placeholder="Cari soal..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 bg-zinc-700/30 border-zinc-700/50 text-zinc-200 focus-visible:ring-cyan-500/50"
+        />
+      </div>
+
+      {/* Filter */}
+      <div className="flex flex-wrap gap-2 md:gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-9 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/30"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Kategori
+              {filters.category && filters.category !== 'ALL' && (
+                <span className="ml-1 text-cyan-400">({filters.category})</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-zinc-800 border-zinc-700/50" align="end">
+            <DropdownMenuItem 
+              onClick={() => handleFilterChange('category', 'ALL')}
+              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+            >
+              Semua Kategori
+              {filters.category === 'ALL' && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+            </DropdownMenuItem>
+            {Array.from(new Set(questions.map(q => q.category))).map(cat => (
+              <DropdownMenuItem 
+                key={cat} 
+                onClick={() => handleFilterChange('category', cat)}
+                className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+              >
+                {cat}
+                {filters.category === cat && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-9 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/30"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Status
+              {filters.status && filters.status !== 'ALL' && (
+                <span className="ml-1 text-cyan-400">({STATUS_LABELS[filters.status as QuestionStatus] || filters.status})</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-zinc-800 border-zinc-700/50" align="end">
+            <DropdownMenuItem 
+              onClick={() => handleFilterChange('status', 'ALL')}
+              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+            >
+              Semua Status
+              {filters.status === 'ALL' && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+            </DropdownMenuItem>
+            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+              <DropdownMenuItem 
+                key={key} 
+                onClick={() => handleFilterChange('status', key as QuestionStatus)}
+                className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+              >
+                {label}
+                {filters.status === key && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-9 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/30"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Tingkat Kesulitan
+              {filters.difficulty && filters.difficulty !== 'ALL' && (
+                <span className="ml-1 text-cyan-400">({DIFFICULTY_LABELS[filters.difficulty as Difficulty] || filters.difficulty})</span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-zinc-800 border-zinc-700/50" align="end">
+            <DropdownMenuItem 
+              onClick={() => handleFilterChange('difficulty', 'ALL')}
+              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+            >
+              Semua Tingkat
+              {filters.difficulty === 'ALL' && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+            </DropdownMenuItem>
+            {Object.entries(DIFFICULTY_LABELS).map(([key, label]) => (
+              <DropdownMenuItem 
+                key={key} 
+                onClick={() => handleFilterChange('difficulty', key as Difficulty)}
+                className="text-zinc-300 focus:bg-zinc-700/50 focus:text-zinc-200"
+              >
+                {label}
+                {filters.difficulty === key && <CheckCircle2 className="h-3.5 w-3.5 ml-2 text-cyan-400" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border border-zinc-700/40 shadow-md shadow-zinc-900/20 overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-zinc-700/80 backdrop-blur-sm">
+              <TableRow>
+                <TableHead 
+                  className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" 
+                  onClick={() => handleFilterChange('sortBy', 'question')}
+                >
+                  <div className="flex items-center gap-1">
+                    Soal
+                    {filters.sortBy === 'question' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden md:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'category')}>
+                  <div className="flex items-center gap-1">
+                    Kategori
+                    {filters.sortBy === 'category' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden lg:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'difficulty')}>
+                  <div className="flex items-center gap-1">
+                    Kesulitan
+                    {filters.sortBy === 'difficulty' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden sm:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'status')}>
+                  <div className="flex items-center gap-1">
+                    Status
+                    {filters.sortBy === 'status' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden md:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'createdAt')}>
+                  <div className="flex items-center gap-1">
+                    Dibuat
+                    {filters.sortBy === 'createdAt' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden lg:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'updatedAt')}>
+                  <div className="flex items-center gap-1">
+                    Diperbarui
+                    {filters.sortBy === 'updatedAt' && (
+                      filters.sortOrder === 'asc' ? 
+                      <ChevronUp className="h-3.5 w-3.5 text-cyan-400" /> : 
+                      <ChevronDown className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm text-right">
+                  Aksi
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-zinc-800/90 divide-zinc-700/50">
+              {loading ? (
+                // Loading Skeleton
+                Array.from({ length: 10 }).map((_, idx) => (
+                  <TableRow key={idx} className="border-zinc-700/30 hover:bg-zinc-800/50 transition-colors duration-300 ease-in-out">
+                    <TableCell className="px-4 py-4 font-medium max-w-xs">
+                      <Skeleton className="h-5 w-3/4 bg-zinc-700/40" />
+                      <Skeleton className="h-3 w-1/4 mt-2 bg-zinc-700/30" />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell px-4 py-4">
+                      <Skeleton className="h-5 w-16 bg-zinc-700/40" />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell px-4 py-4">
+                      <Skeleton className="h-5 w-20 bg-zinc-700/40" />
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell px-4 py-4">
+                      <Skeleton className="h-5 w-24 bg-zinc-700/40" />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell px-4 py-4">
+                      <Skeleton className="h-5 w-28 bg-zinc-700/40" />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell px-4 py-4">
+                      <Skeleton className="h-5 w-28 bg-zinc-700/40" />
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-right">
+                      <Skeleton className="h-8 w-8 ml-auto bg-zinc-700/40" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : error ? (
+                // Error State
+                <TableRow className="border-0 hover:bg-zinc-800/50 transition-colors duration-300 ease-in-out">
+                  <TableCell colSpan={7} className="px-4 py-8 text-center text-zinc-400 bg-zinc-800/80">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                      <AlertCircle className="h-10 w-10 text-zinc-500 mb-2" />
+                      <p className="text-lg font-medium mb-1">Terjadi Kesalahan</p>
+                      <p className="text-zinc-400 max-w-sm mb-4">Gagal memuat data soal. Silakan coba lagi.</p>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700/50"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Coba Lagi
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : questions.length === 0 ? (
+                // Empty State
+                <TableRow className="border-0 hover:bg-zinc-800/50 transition-colors duration-300 ease-in-out">
+                  <TableCell colSpan={7} className="px-4 py-8 text-center text-zinc-400 bg-zinc-800/80">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                      <FileQuestion className="h-10 w-10 text-zinc-500 mb-2" />
+                      <p className="text-lg font-medium mb-1">Tidak Ada Soal</p>
+                      <p className="text-zinc-400 max-w-sm mb-4">Belum ada soal yang dibuat. Klik tombol &quot;Buat Soal&quot; untuk mulai membuat soal baru.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                // Data Rows
+                questions.map((question) => (
+                  <TableRow 
+                    key={question.id} 
+                    className="border-zinc-700/30 hover:bg-zinc-800/50 transition-colors duration-300 ease-in-out"
+                  >
+                    <TableCell className="px-4 py-4 font-medium max-w-xs">
+                      <div className="line-clamp-2 text-ellipsis text-white">
+                        {question.question}
+                      </div>
+                      <div className="sm:hidden mt-2 flex flex-wrap gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs border-zinc-700/60 bg-zinc-700/30 text-zinc-300"
+                        >
+                          {question.category}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs border-zinc-700/60 ${DIFFICULTY_COLORS[question.difficulty]}`}
+                        >
+                          {DIFFICULTY_LABELS[question.difficulty]}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs border-zinc-700/60 ${STATUS_COLORS[question.status]}`}
+                        >
+                          {STATUS_LABELS[question.status]}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell px-4 py-4 text-zinc-300">
+                      {question.category}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell px-4 py-4">
+                      <Badge className={DIFFICULTY_COLORS[question.difficulty]}>
+                        {DIFFICULTY_LABELS[question.difficulty]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell px-4 py-4 text-zinc-300">
+                      <Badge className={STATUS_COLORS[question.status]}>
+                        {STATUS_LABELS[question.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell px-4 py-4 text-zinc-400 text-sm">
+                      {question.createdAt}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell px-4 py-4 text-zinc-400 text-sm">
+                      {question.updatedAt}
+                    </TableCell>
+                    <TableCell className="px-4 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-zinc-700/50 text-zinc-400 hover:text-cyan-400"
+                          >
+                            <MoreHorizontal className="h-4.5 w-4.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-zinc-800 border-zinc-700/50" align="end">
+                          <DropdownMenuItem 
+                            onClick={() => onQuestionEdit?.(question)}
+                            className="text-zinc-300 focus:bg-zinc-700/50 focus:text-cyan-400"
+                          >
+                            <FileEdit className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                            Edit Soal
+                          </DropdownMenuItem>
+                          {question.status !== 'PUBLISHED' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusChange(question.id, 'PUBLISHED')}
+                              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-cyan-400"
+                            >
+                              <FileEdit className="mr-2.5 h-4 w-4 text-muted-foreground" />
+                              Publikasikan
+                            </DropdownMenuItem>
+                          )}
+                          {question.status !== 'ARCHIVED' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusChange(question.id, 'ARCHIVED')}
+                              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-purple-400"
+                            >
+                              <Archive className="mr-2.5 h-4 w-4 text-amber-500" />
+                              Arsipkan
+                            </DropdownMenuItem>
+                          )}
+                          {question.status === 'ARCHIVED' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusChange(question.id, 'DRAFT')}
+                              className="text-zinc-300 focus:bg-zinc-700/50 focus:text-yellow-400"
+                            >
+                              <Archive className="mr-2.5 h-4 w-4 text-amber-500" />
+                              Kembalikan ke Draft
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator className="bg-zinc-700/50" />
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(question)}
+                            className="text-red-400 focus:bg-red-500/20 focus:text-red-400"
+                          >
+                            <Trash2 className="mr-2.5 h-4 w-4 text-red-500" />
+                            Hapus Soal
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={deleteDialog.open} 
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog({ open: false, question: null });
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Soal</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus soal ini? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading} onClick={handleCancelDelete}>
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={loading}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menghapus...
+                </>
+              ) : 'Hapus'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

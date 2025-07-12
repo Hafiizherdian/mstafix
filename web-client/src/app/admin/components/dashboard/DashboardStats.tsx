@@ -36,6 +36,7 @@ interface StatCardProps {
   loading?: boolean;
 }
 
+
 const StatCard = ({ title, value, icon: Icon, description, trend, loading = false }: StatCardProps) => {
   if (loading) {
     return (

@@ -1,14 +1,18 @@
 import * as express from 'express';
 import * as cors from 'cors';
 import { setupWebSocket, setupMessageQueue } from './messageQueue';
-import { getRecentActivities } from './activityStore';
+import { getRecentActivities, addActivity } from './activityStore';
 
 const app = express.default();
 
 // Konfigurasi CORS
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'OPTIONS'],
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:80'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 };
@@ -26,6 +30,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'UP' });
 });
 
+// Get recent activities
 // Get recent activities
 app.get('/activities/recent', (req, res) => {
   try {
@@ -49,6 +54,21 @@ const server = app.listen(PORT, () => {
   console.log(`API available at http://localhost:${PORT}`);
   console.log(`- GET /health`);
   console.log(`- GET /activities/recent?limit=10`);
+});
+
+// Add new activity manually (for testing)
+app.post('/activities', (req, res) => {
+  try {
+    const { type, user, metadata } = req.body;
+    if (!type || !user) {
+      return res.status(400).json({ success: false, error: 'type and user are required' });
+    }
+    addActivity({ type, user, metadata });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error adding activity:', error);
+    res.status(500).json({ success: false, error: 'Failed to add activity' });
+  }
 });
 
 // Setup WebSocket server

@@ -64,8 +64,8 @@ async function sendQuestionNotification(type: string, payload: any): Promise<voi
   try {
     await notificationService.sendNotification('soal-notifications', {
       type,
-      ...payload,
-      timestamp: new Date()
+      data: payload,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Failed to send notification:', error);
@@ -249,7 +249,7 @@ export const updateQuestion = async (id: string, data: any): Promise<any> => {
     });
 
     // Send notification
-    await sendQuestionNotification('SOAL_UPDATED', {
+    await sendQuestionNotification('question_updated', {
       questionId: id,
       updates: updateData,
     });
@@ -268,7 +268,7 @@ export const deleteQuestion = async (id: string) => {
     });
 
     // Send notification
-    await sendQuestionNotification('SOAL_DELETED', {
+    await sendQuestionNotification('question_deleted', {
       questionId: id
     });
 
@@ -290,7 +290,7 @@ export const updateQuestionStatus = async (id: string, status: string) => {
     });
 
     // Send notification
-    await sendQuestionNotification('STATUS_CHANGED', {
+    await sendQuestionNotification('status_changed', {
       questionId: id,
       newStatus: status
     });
@@ -345,7 +345,7 @@ export const saveQuestions = async (requestData: any): Promise<any[]> => {
           category: (q.category || requestData.category || 'uncategorized').toLowerCase(),
           difficulty: q.difficulty || requestData.difficulty || 'MEDIUM',
           type: q.type || requestData.type || 'MCQ',
-          status: q.status || 'DRAFT',
+          status: q.status || 'draft',
           updatedAt: batchTimestamp,
         };
         
@@ -383,7 +383,7 @@ export const saveQuestions = async (requestData: any): Promise<any[]> => {
             processedIds.add(savedQuestion.id);
           }
           
-          await sendQuestionNotification('SOAL_UPDATED', {
+          await sendQuestionNotification('question_updated', {
             questionId: savedQuestion.id,
             updates: data,
           });
@@ -412,9 +412,15 @@ export const saveQuestions = async (requestData: any): Promise<any[]> => {
             processedIds.add(savedQuestion.id);
           }
           
-          await sendQuestionNotification('SOAL_CREATED', {
-            questionId: savedQuestion.id,
-            category: savedQuestion.category,
+          await sendQuestionNotification('question_created', {
+            user: {
+              name: requestData.userName || 'User',
+              email: userId || 'unknown'
+            },
+            metadata: {
+              category: savedQuestion.category,
+              questionId: savedQuestion.id
+            }
           });
         }
         return savedQuestion;
@@ -423,7 +429,23 @@ export const saveQuestions = async (requestData: any): Promise<any[]> => {
 
     // Filter out null values from skipped duplicates
     const validQuestions = questions.filter(q => q !== null);
-    console.log(`Successfully saved or updated ${validQuestions.length} questions in manage-soal-service`);
+    // Kirim notifikasi aktivitas batch
+try {
+  await sendQuestionNotification('question_created', {
+    user: {
+      name: requestData.userName || 'User',
+      email: userId || 'unknown'
+    },
+    metadata: {
+      count: validQuestions.length,
+      category: requestData.category || 'unspecified'
+    }
+  });
+} catch (err) {
+  console.error('Failed to publish batch question_created activity:', err);
+}
+
+console.log(`Successfully saved or updated ${validQuestions.length} questions in manage-soal-service`);
     return validQuestions;
   } catch (error) {
     console.error('Save error in manage-soal-service:', error);

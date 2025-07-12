@@ -1,6 +1,8 @@
 import app from './app';
 import { PrismaClient } from '@prisma/client';
 import { messageQueue } from './services/messageQueue';
+import { RabbitNotificationService } from './services/notificationService';
+import { setNotificationService } from './controllers/question.controller';
 
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3003;
@@ -9,6 +11,11 @@ async function startServer() {
   try {
     await prisma.$connect();
     console.log("Database connected successfully");
+
+    // Init notification service and inject into controller
+    const notifService = new RabbitNotificationService();
+    await notifService.init();
+    setNotificationService(notifService);
 
     // Initialize message queue
     await messageQueue.connect();

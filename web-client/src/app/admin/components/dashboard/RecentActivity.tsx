@@ -1,19 +1,22 @@
+'use client';
 import { Activity, Clock, User, FileQuestion, Users, RefreshCw, ArrowRight, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/app/admin/components/ui/Button';
-import { Badge } from '@/app/admin/components/ui/badge';
 import { Skeleton } from '@/app/admin/components/ui/skeleton';
 import { formatDistanceToNow, format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { logger } from '@/lib/logger';
 import { useEffect, useState, useCallback } from 'react';
-import { cn } from '@/lib/utils';
+import { Avatar } from '@/app/admin/components/ui/avatar';
 import { api } from '../../services/api';
 
-// Create a logger instance for this component
-const componentLogger = logger.child({ component: 'RecentActivity' });
-
-type ActivityType = 'question_created' | 'user_registered' | 'generation_completed' | 'login';
+type ActivityType =
+  | 'question_created'
+  | 'question_updated'
+  | 'question_deleted'
+  | 'status_changed'
+  | 'user_registered'
+  | 'generation_completed'
+  | 'login';
 
 interface ActivityUser {
   name: string;
@@ -21,11 +24,7 @@ interface ActivityUser {
   avatar?: string;
 }
 
-// Definisikan tipe yang lebih spesifik untuk metadata activity
-type ActivityMetadataValue = string | number | boolean | null | undefined;
-
-// Definisikan tipe untuk properti yang diketahui
-type KnownActivityMetadata = {
+interface ActivityMetadata {
   count?: number;
   category?: string;
   questionId?: string;
@@ -33,11 +32,7 @@ type KnownActivityMetadata = {
   ip?: string;
   device?: string;
   action?: string;
-  [key: `_${string}`]: ActivityMetadataValue; // Untuk properti dinamis tambahan
-};
-
-// Gunakan tipe ini untuk metadata
-type ActivityMetadata = KnownActivityMetadata;
+}
 
 interface ActivityItem {
   id: string;
@@ -75,6 +70,27 @@ const activityTypes: Record<ActivityType, {
     bgColor: 'bg-purple-500/10 hover:bg-purple-500/20',
     iconBgColor: 'bg-purple-500/20',
   },
+  question_updated: {
+    icon: FileQuestion,
+    text: 'memperbarui soal',
+    color: 'text-yellow-400',
+    bgColor: 'bg-yellow-500/10 hover:bg-yellow-500/20',
+    iconBgColor: 'bg-yellow-500/20',
+  },
+  question_deleted: {
+    icon: FileQuestion,
+    text: 'menghapus soal',
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-500/10 hover:bg-rose-500/20',
+    iconBgColor: 'bg-rose-500/20',
+  },
+  status_changed: {
+    icon: FileQuestion,
+    text: 'mengubah status soal',
+    color: 'text-orange-400',
+    bgColor: 'bg-orange-500/10 hover:bg-orange-500/20',
+    iconBgColor: 'bg-orange-500/20',
+  },
   login: {
     icon: Users,
     text: 'masuk ke sistem',
@@ -89,7 +105,7 @@ interface ApiActivityResponse {
   type: ActivityType;
   user: ActivityUser;
   metadata?: ActivityMetadata;
-  createdAt: string;
+  timestamp?: string;
 }
 
 interface ApiResponse {
@@ -104,7 +120,7 @@ export function RecentActivity(): JSX.Element {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Format activity timestamp
   const formatActivityTime = (timestamp: string) => {
     try {
@@ -119,26 +135,20 @@ export function RecentActivity(): JSX.Element {
 
   // Fetch activities from API
   const fetchActivities = useCallback(async () => {
-    const logContext = { component: 'RecentActivity', action: 'fetchActivities' };
-    
     try {
       setIsLoading(true);
-      componentLogger.info('Fetching activities', logContext);
-      
-      // Panggil endpoint menggunakan instance API yang sudah dikonfigurasi untuk menyertakan token
-      const result = await api.get('/v1/notifications/activities/recent?limit=10') as ApiResponse;
+      const result = await api.get('http://localhost:3004/activities/recent?limit=10') as ApiResponse;
       
       if (!result.success) {
         throw new Error(result.error || 'Gagal memuat aktivitas');
       }
       
-      // Transform data dari format endpoint ke format yang diharapkan komponen
       const transformedData = result.data.map((activity: ApiActivityResponse) => ({
         id: activity.id,
         type: activity.type,
         user: activity.user,
         metadata: activity.metadata || {},
-        timestamp: activity.createdAt
+        timestamp: activity.timestamp || new Date().toISOString()
       }));
       
       setActivities(transformedData);
@@ -146,139 +156,46 @@ export function RecentActivity(): JSX.Element {
       setError(null);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Gagal memuat aktivitas';
-      componentLogger.error('Error fetching activities:', { error: errorMessage });
       setError(errorMessage);
-      
-      // Fallback ke data mock jika terjadi error
-      if (activities.length === 0) {
-        setActivities(getMockActivities());
-      }
+      setActivities([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [activities.length]);
-
-  // Fungsi untuk mendapatkan data mock
-  const getMockActivities = (): ActivityItem[] => {
-    return [
-      {
-        id: '1',
-        type: 'question_created',
-        user: {
-          name: 'Admin',
-          email: 'admin@example.com',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin',
-        },
-        metadata: {
-          count: 5,
-          category: 'Matematika',
-          questionId: 'q123'
-        },
-        timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '2',
-        type: 'user_registered',
-        user: {
-          name: 'John Doe',
-          email: 'john.doe@example.com',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-        },
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '3',
-        type: 'generation_completed',
-        user: {
-          name: 'System',
-          email: 'system@example.com',
-        },
-        metadata: {
-          count: 20,
-          category: 'Bahasa Indonesia',
-          generationId: 'gen456'
-        },
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '4',
-        type: 'login',
-        user: {
-          name: 'Admin',
-          email: 'admin@example.com',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin',
-        },
-        metadata: {
-          ip: '192.168.1.1',
-          device: 'Chrome on Windows'
-        },
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-  };
+  }, []);
 
   // Load activities on component mount
   useEffect(() => {
     fetchActivities();
-    
-    // Refresh data setiap 30 detik
-    const intervalId = setInterval(fetchActivities, 30000);
-    
-    return () => clearInterval(intervalId);
   }, [fetchActivities]);
 
   // Handle refresh button click
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchActivities().catch(err => {
-      componentLogger.error('Error during refresh:', err);
-      setIsRefreshing(false);
-    });
+    fetchActivities();
   };
 
   // Handle view all activities
   const handleViewAll = () => {
-    componentLogger.info('View all activities clicked', {
-      action: 'view_all_activities',
-      currentActivityCount: activities.length
-    });
-    // Navigate to full activity log
-    // router.push('/admin/activities');
+    // Navigasi ke log aktivitas lengkap akan ditambahkan di sini
   };
   
   // Handle activity item click
   const handleActivityClick = (activity: ActivityItem) => {
-    componentLogger.info('Activity item clicked', {
-      activityId: activity.id,
-      activityType: activity.type,
-      userId: activity.user.email,
-      timestamp: activity.timestamp
-    });
-    
-    // Handle different activity types
-    switch (activity.type) {
-      case 'question_created':
-        // router.push(`/admin/questions/${activity.metadata?.questionId}`);
-        break;
-      case 'user_registered':
-        // router.push(`/admin/users/${activity.user.email}`);
-        break;
-      case 'generation_completed':
-        // router.push(`/admin/generations/${activity.metadata?.generationId}`);
-        break;
-      case 'login':
-        // Show login details modal
-        break;
-    }
+    // Logika navigasi ke detail aktivitas akan ditambahkan di sini
   };
   
   // Get activity description based on type
   const getActivityDescription = (activity: ActivityItem) => {
     const { type, metadata, user } = activity;
-    const activityType = activityTypes[type];
+    const activityType = activityTypes[type] ?? {
+      icon: Activity,
+      text: type,
+      color: 'text-zinc-400',
+      bgColor: 'bg-zinc-500/10 hover:bg-zinc-500/20',
+      iconBgColor: 'bg-zinc-500/20',
+    };
     
-    // Default values to avoid undefined in template literals
     const count = metadata?.count ?? 0;
     const category = metadata?.category ?? '';
     
@@ -424,25 +341,38 @@ export function RecentActivity(): JSX.Element {
         <CardContent className="p-0">
           <div className="divide-y divide-zinc-800">
             {activities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-6 sm:p-8 text-center text-zinc-500">
-                <Activity className="h-10 w-10 sm:h-12 sm:w-12 opacity-20 mb-2" />
-                <p className="font-medium text-sm sm:text-base">Belum ada aktivitas</p>
-                <p className="text-xs sm:text-sm">Aktivitas terbaru akan muncul di sini</p>
-              </div>
+              <>
+                <div className="flex flex-col items-center justify-center p-6 sm:p-8 text-center text-zinc-500">
+                  <Activity className="h-10 w-10 sm:h-12 sm:w-12 opacity-20 mb-2" />
+                  <p className="font-medium text-sm sm:text-base">Belum ada aktivitas</p>
+                  <p className="text-xs sm:text-sm">Aktivitas terbaru akan muncul di sini</p>
+                </div>
+                <Skeleton className="h-4 w-12 bg-zinc-800" />
+              </>
             ) : (
               activities.map((activity) => {
                 const activityType = activityTypes[activity.type];
                 const ActivityIcon = activityType.icon;
-                
+                const hasAvatar = Boolean(activity.user.avatar);
+
                 return (
-                  <div 
+                  <div
                     key={activity.id}
                     className={`group flex items-start p-3 sm:p-4 ${activityType.bgColor} transition-colors cursor-pointer`}
                     onClick={() => handleActivityClick(activity)}
                   >
-                    <div className={`flex-shrink-0 flex items-center justify-center h-9 w-9 rounded-lg ${activityType.iconBgColor} ${activityType.color} transition-colors`}>
-                      <ActivityIcon className="h-4 w-4 sm:h-4 sm:w-4" />
-                    </div>
+                    {hasAvatar ? (
+                      <Avatar
+                        src={activity.user.avatar}
+                        name={activity.user.name}
+                        size={36}
+                        className="flex-shrink-0 shadow-inner border border-zinc-800"
+                      />
+                    ) : (
+                      <div className={`flex-shrink-0 flex items-center justify-center h-9 w-9 rounded-lg ${activityType.iconBgColor} ${activityType.color} transition-colors`}>
+                        <ActivityIcon className="h-4 w-4 sm:h-4 sm:w-4" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0 ml-3">
                       <p className="text-sm font-medium text-white leading-tight line-clamp-2 sm:line-clamp-1 group-hover:text-cyan-300 transition-colors">
                         {getActivityDescription(activity)}

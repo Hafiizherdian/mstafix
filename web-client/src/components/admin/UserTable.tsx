@@ -1,4 +1,5 @@
 'use client'
+import { Avatar } from '@/app/admin/components/ui/avatar';
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { toast } from 'sonner';
@@ -8,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface User {
   id: string;
+  avatar?: string;
   email: string;
   name: string;
   role: 'ADMIN' | 'USER';
@@ -156,20 +158,20 @@ export default function UserTable() {
     }
   };
 
-  const handleDelete = async (userId: string) => {
-    if (showDeleteConfirm !== userId) {
-      setShowDeleteConfirm(userId);
-      return;
-    }
+  const handleCancel = () => {
+    setEditingId(null);
+    setEditData({});
+  };
 
+  const handleDelete = async (userId: string) => {
     setIsDeleting(userId);
     try {
-      await axios.delete(`/api/admin/users/${userId}`, {
-        headers: getAuthHeaders()
-      });
-      await fetchUsers();
+      const headers = getAuthHeaders();
+      await axios.delete(`/api/admin/users/${userId}`, { headers });
       toast.success('Pengguna berhasil dihapus');
+      setUsers(users.filter(user => user.id !== userId));
     } catch (err: any) {
+      console.error('Error deleting user:', err);
       const errorMessage = err.response?.data?.message || 'Gagal menghapus pengguna';
       toast.error(errorMessage);
     } finally {
@@ -178,148 +180,199 @@ export default function UserTable() {
     }
   };
 
-  const handleCancel = () => {
-    setEditingId(null);
-    setEditData({});
+  const handleDeleteClick = (userId: string) => {
+    setShowDeleteConfirm(userId);
   };
 
-  return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Manajemen Pengguna</h2>
-          <p className="text-zinc-400 mt-1">Kelola data dan peran pengguna</p>
-        </div>
-        <button 
-          className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          onClick={() => {}}
-        >
-          Tambah Pengguna
-        </button>
-      </div>
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(null);
+  };
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
+        <span className="ml-2 text-zinc-300">Memuat data pengguna...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-400">
+        {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-zinc-800 border border-zinc-800 rounded-lg overflow-hidden shadow-lg shadow-zinc-900/30">
+        <thead className="bg-zinc-800/80 backdrop-blur-sm">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider w-16">Avatar</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Nama</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Email</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Role</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Dibuat</th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-zinc-300 uppercase tracking-wider">Aksi</th>
+          </tr>
+        </thead>
+        <tbody className="bg-zinc-900/90 divide-y divide-zinc-800">
+          {users.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-6 py-12 text-center text-zinc-400">
+                Tidak ada data pengguna yang ditemukan.
+              </td>
+            </tr>
+          ) : (
+            users.map((user) => (
+              <tr key={user.id} className="hover:bg-zinc-800/50 transition-colors duration-300 ease-in-out">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white w-16">
+                  <Avatar
+                    name={user.name}
+                    src={user.avatar}
+                    className="h-10 w-10 text-lg border border-zinc-700/50 rounded-full shadow-md shadow-zinc-900/20"
+                  />
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                  {user.name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-300">
+                  {user.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-300">
+                  <span className={cn(
+                    "px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow shadow-zinc-900/30",
+                    user.role === 'ADMIN' ? 'bg-cyan-900/70 text-cyan-300' : 'bg-zinc-800/70 text-zinc-200'
+                  )}>
+                    {user.role === 'ADMIN' ? 'Admin' : 'Pengguna'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-400">
+                  {new Date(user.createdAt).toLocaleDateString('id-ID', { 
+                    day: 'numeric', 
+                    month: 'short', 
+                    year: 'numeric' 
+                  })}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex items-center justify-end space-x-2">
+                    <button 
+                      onClick={() => handleEdit(user)} 
+                      disabled={!!editingId}
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600/80 hover:bg-cyan-700/90 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 transition-all duration-200 ease-in-out"
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" />
+                      Edit
+                    </button>
+                    {user.id !== currentUser?.id && (
+                      <button 
+                        onClick={() => handleDeleteClick(user.id)}
+                        disabled={!!editingId || isDeleting === user.id}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600/80 hover:bg-red-700/90 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200 ease-in-out"
+                      >
+                        {isDeleting === user.id ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+
+      {/* Edit Modal */}
+      {editingId && (
+        <div className="fixed inset-0 bg-zinc-900/70 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+          <div className="relative bg-zinc-800/95 rounded-xl shadow-2xl shadow-zinc-900/40 max-w-md w-full mx-4 transform transition-all duration-300 ease-in-out scale-100 hover:scale-102">
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-5 tracking-wide">Edit Pengguna</h3>
+              <div className="mb-5">
+                <label className="block text-zinc-300 text-sm font-medium mb-1.5">Nama</label>
+                <input
+                  type="text"
+                  value={editData.name || ''}
+                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-zinc-700/50 rounded-lg focus:ring-2 focus:ring-cyan-500/60 bg-zinc-700/30 text-white shadow-inner shadow-zinc-900/20"
+                  disabled={editingId === currentUser?.id}
+                />
+              </div>
+              <div className="mb-5">
+                <label className="block text-zinc-300 text-sm font-medium mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={editData.email || ''}
+                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-zinc-700/50 rounded-lg focus:ring-2 focus:ring-cyan-500/60 bg-zinc-700/30 text-white shadow-inner shadow-zinc-900/20"
+                  disabled={editingId === currentUser?.id}
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block text-zinc-300 text-sm font-medium mb-1.5">Role</label>
+                <select
+                  value={editData.role || ''}
+                  onChange={(e) => setEditData({ ...editData, role: e.target.value as 'ADMIN' | 'USER' })}
+                  className="w-full px-3 py-2 border border-zinc-700/50 rounded-lg focus:ring-2 focus:ring-cyan-500/60 bg-zinc-700/30 text-white shadow-inner shadow-zinc-900/20"
+                  disabled={editingId === currentUser?.id}
+                >
+                  <option value="ADMIN">Admin</option>
+                  <option value="USER">Pengguna</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="px-5 py-2.5 border border-zinc-700/60 rounded-lg shadow-sm text-sm font-medium text-zinc-300 bg-zinc-700/40 hover:bg-zinc-600/50 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all duration-200 ease-in-out"
+                  onClick={handleCancel}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  className="px-5 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600/80 hover:bg-green-700/90 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 ease-in-out"
+                  onClick={() => handleSave(editingId)}
+                >
+                  Simpan
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : error ? (
-        <div className="bg-red-900/20 border border-red-800/50 text-red-400 p-4 rounded-lg">
-          {error}
-        </div>
-      ) : (
-        <div className="overflow-x-auto -mx-2 sm:mx-0">
-          <div className="inline-block min-w-full align-middle">
-            <div className="overflow-hidden border border-zinc-800 rounded-lg">
-              <table className="min-w-full divide-y divide-zinc-800">
-                <thead className="bg-zinc-800">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Nama</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Email</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Role</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider">Bergabung</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-zinc-300 uppercase tracking-wider">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-zinc-900/50 divide-y divide-zinc-800">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-zinc-800/50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
-                        {editingId === user.id ? (
-                          <input
-                            type="text"
-                            value={editData.name || ''}
-                            onChange={(e) => setEditData({...editData, name: e.target.value})}
-                            className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-white text-sm w-full"
-                          />
-                        ) : (
-                          user.name
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-300">
-                        {editingId === user.id ? (
-                          <input
-                            type="email"
-                            value={editData.email || ''}
-                            onChange={(e) => setEditData({...editData, email: e.target.value})}
-                            className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-white text-sm w-full"
-                          />
-                        ) : (
-                          user.email
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        {editingId === user.id ? (
-                          <select
-                            value={editData.role}
-                            onChange={(e) => setEditData({...editData, role: e.target.value as 'ADMIN' | 'USER'})}
-                            className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-white text-sm"
-                          >
-                            <option value="USER">User</option>
-                            <option value="ADMIN">Admin</option>
-                          </select>
-                        ) : (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'ADMIN' 
-                              ? 'bg-cyan-900/30 text-cyan-400 border border-cyan-800/50' 
-                              : 'bg-zinc-800/50 text-zinc-300 border border-zinc-700'
-                          }`}>
-                            {user.role}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-zinc-400">
-                        {new Date(user.createdAt).toLocaleDateString('id-ID')}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          {editingId === user.id ? (
-                            <>
-                              <button
-                                onClick={() => handleSave(user.id)}
-                                className="text-green-400 hover:text-green-300 p-1.5 rounded-full hover:bg-green-900/20"
-                                disabled={!editData.name || !editData.email}
-                              >
-                                <Save className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={handleCancel}
-                                className="text-zinc-400 hover:text-zinc-300 p-1.5 rounded-full hover:bg-zinc-700/50"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleEdit(user)}
-                                className="text-cyan-400 hover:text-cyan-300 p-1.5 rounded-full hover:bg-cyan-900/20"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(user.id)}
-                                className="text-red-400 hover:text-red-300 p-1.5 rounded-full hover:bg-red-900/20"
-                                disabled={isDeleting === user.id}
-                              >
-                                {isDeleting === user.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : showDeleteConfirm === user.id ? (
-                                  <span className="flex items-center gap-1 text-xs">
-                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                    Yakin?
-                                  </span>
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-zinc-900/70 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+          <div className="relative bg-zinc-800/95 rounded-xl shadow-2xl shadow-zinc-900/40 max-w-md w-full mx-4 transform transition-all duration-300 ease-in-out scale-100 hover:scale-102">
+            <div className="p-6">
+              <div className="flex items-center mb-5 text-red-400">
+                <AlertTriangle className="h-6 w-6 mr-2" />
+                <h3 className="text-xl font-semibold text-white tracking-wide">Konfirmasi Penghapusan</h3>
+              </div>
+              <p className="mb-6 text-zinc-300 leading-relaxed">Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat dibatalkan.</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="px-5 py-2.5 border border-zinc-700/60 rounded-lg shadow-sm text-sm font-medium text-zinc-300 bg-zinc-700/40 hover:bg-zinc-600/50 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all duration-200 ease-in-out"
+                  onClick={handleDeleteCancel}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  className="px-5 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600/80 hover:bg-red-700/90 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 ease-in-out"
+                  onClick={() => handleDelete(showDeleteConfirm)}
+                >
+                  Hapus
+                </button>
+              </div>
             </div>
           </div>
         </div>

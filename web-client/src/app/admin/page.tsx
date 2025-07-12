@@ -72,32 +72,11 @@ export default function AdminDashboardPage() {
 
       {/* Recent Activity & Questions Table */}
       <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-        <Card className="border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
-          <CardHeader className="pb-3 px-4 sm:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
-              <div>
-                <CardTitle className="text-base sm:text-lg font-semibold">Aktivitas Terbaru</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Aktivitas terbaru di sistem
-                </CardDescription>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-cyan-400 hover:text-cyan-300 text-xs sm:text-sm"
-              >
-                Lihat Semua
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <RecentActivity />
-          </CardContent>
-        </Card>
+        
 
         <Card className="border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
           <CardHeader className="pb-3 px-4 sm:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
+            <div className="flex sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
               <div>
                 <CardTitle className="text-base sm:text-lg font-semibold">Soal Terbaru</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">

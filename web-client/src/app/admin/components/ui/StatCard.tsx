@@ -7,14 +7,15 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: ReactNode;
+  iconBg?: string;
   description?: string;
-  loading?: boolean;
   className?: string;
   trend?: {
     value: number;
     label: string;
     type: 'increase' | 'decrease' | 'neutral';
   };
+  loading?: boolean;
 }
 
 export function StatCard({
@@ -23,6 +24,7 @@ export function StatCard({
   icon,
   description,
   loading = false,
+  iconBg = 'bg-zinc-800/60',
   className,
   trend,
 }: StatCardProps) {
@@ -47,7 +49,7 @@ export function StatCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className="h-4 w-4 text-muted-foreground">
+        <div className={`h-8 w-8 flex items-center justify-center rounded-md ${iconBg}`}>
           {icon}
         </div>
       </CardHeader>

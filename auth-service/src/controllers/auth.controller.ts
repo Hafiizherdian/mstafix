@@ -2,6 +2,7 @@ import { PrismaClient, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { notificationService } from "../services/notification.service";
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -91,6 +92,9 @@ export const register = async (userData: CreateUserDTO) => {
         role: userRole,
       },
     });
+
+    // Send notification about user registration
+    notificationService.sendUserRegistrationNotification(user);
 
     // Generate tokens
     const { accessToken, refreshToken } = await generateTokens({

@@ -46,9 +46,12 @@ export default function SetupAdmin() {
         throw new Error(data.error || "Pembuatan akun admin gagal");
       }
 
-      // Store user data in localStorage
+      // Store user data and auth token in localStorage
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
+      }
+      if (data.accessToken) {
+        localStorage.setItem("authToken", data.accessToken);
       }
 
       toast.success("Akun admin berhasil dibuat");
