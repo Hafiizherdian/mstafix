@@ -11,7 +11,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white selection:bg-cyan-500/50 selection:text-white">
+    <div className="flex min-h-screen max-w-full bg-zinc-950 text-white selection:bg-cyan-500/50 selection:text-white">
       {/* Background Pattern */}
       <div className="fixed inset-0 -z-10 h-full w-full bg-grid-zinc-800/20 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]">
         <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/80 to-zinc-900/90" />

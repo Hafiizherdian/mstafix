@@ -83,7 +83,7 @@ export default function AdminQuestionsPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="max-w-full flex flex-col md:flex-row md:items-center md:justify-between md:flex-wrap gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-zinc-200 to-white">Bank Soal</h1>
           <p className="text-zinc-400 mt-2">
@@ -97,7 +97,7 @@ export default function AdminQuestionsPage() {
       </div>
 
       {/* Questions Table Container */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+      <div className="max-w-screen-lg mx-auto bg-zinc-900/50 border border-zinc-800 rounded-2xl p-2 sm:p-4 md:p-6 overflow-x-auto">
         <QuestionsTable
           questions={questions as QuestionType[]}
           loading={loading}

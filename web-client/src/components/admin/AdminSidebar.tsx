@@ -1,7 +1,7 @@
 "use client";
 import { LayoutDashboard, Users, FileQuestion, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
@@ -26,12 +26,20 @@ const navItems = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
   
   // Close sidebar when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
+  // Fungsi logout
+  const handleLogout = () => {
+    localStorage.removeItem("token"); // kalau pakai token
+    router.push("/login");
+  };
+
+  
   // Close sidebar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,7 +120,9 @@ export default function AdminSidebar() {
       </nav>
       
       <div className="mt-auto pt-4 border-t border-zinc-700">
-        <button className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-red-400 rounded-lg hover:bg-red-900/30 transition-colors">
+        <button 
+        onClick={handleLogout}
+        className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-red-400 rounded-lg hover:bg-red-900/30 transition-colors">
           <LogOut className="w-5 h-5 mr-3" />
           Keluar
         </button>

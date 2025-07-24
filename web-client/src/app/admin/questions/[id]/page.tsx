@@ -175,7 +175,7 @@ export default function QuestionFormPage() {
       </div>
 
       {/* Form Container */}
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
+      <div className="max-w-2xl mx-auto bg-zinc-900/80 border border-zinc-800 rounded-2xl shadow-xl p-4 sm:p-8 space-y-8 mt-6 mb-10 transition-all duration-300">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Konten Soal */}
           <div>
@@ -221,24 +221,37 @@ export default function QuestionFormPage() {
                 render={({ field: radioField }: { field: any }) => (
                   <div className="space-y-3">
                     {fields.map((item, index) => (
-                      <div key={item.id} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
-                        <input 
-                          type="radio" 
-                          {...radioField}
-                          onChange={() => radioField.onChange(index)}
-                          checked={radioField.value === index}
-                          className="form-radio h-5 w-5 text-cyan-500 bg-zinc-700 border-zinc-600 focus:ring-cyan-600 focus:ring-offset-zinc-800"
-                        />
-                        <Input
-                          {...register(`options.${index}.text`)}
-                          placeholder={`Opsi ${index + 1}`}
-                          className="flex-grow"
-                        />
-                        <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)} disabled={fields.length <= 2}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+  <div
+    key={item.id}
+    className="flex items-center gap-3 p-4 bg-zinc-800/80 rounded-xl border border-zinc-700 shadow-sm hover:shadow-lg transition-shadow duration-200 ease-in-out group"
+  >
+    <div className="flex items-center justify-center">
+      <input
+        type="radio"
+        {...radioField}
+        onChange={() => radioField.onChange(index)}
+        checked={radioField.value === index}
+        className="form-radio h-5 w-5 text-cyan-500 bg-zinc-700 border-zinc-600 focus:ring-cyan-600 focus:ring-offset-zinc-800 transition-colors duration-150"
+      />
+    </div>
+    <Input
+      {...register(`options.${index}.text`)}
+      placeholder={`Opsi ${index + 1}`}
+      className="flex-grow bg-zinc-900/60 border-zinc-700 text-zinc-100 placeholder-zinc-400 focus:border-cyan-500 focus:ring-cyan-500 rounded-lg px-4 py-2 text-base shadow-inner transition-all duration-150"
+    />
+    <Button
+      type="button"
+      variant="destructive"
+      size="icon"
+      onClick={() => remove(index)}
+      disabled={fields.length <= 2}
+      className="ml-2 opacity-80 group-hover:opacity-100 transition-opacity duration-200"
+      title="Hapus Opsi"
+    >
+      <Trash2 className="h-4 w-4" />
+    </Button>
+  </div>
+))}
                   </div>
                 )}
               />

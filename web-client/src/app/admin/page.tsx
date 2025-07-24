@@ -71,12 +71,12 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Activity & Questions Table */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
+      <div className="max-w-full grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
         
 
-        <Card className="border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+        <Card className="max-w-full border border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
           <CardHeader className="pb-3 px-4 sm:px-6">
-            <div className="flex sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
+            <div className="flex max-w-full sm:flex-row sm:items-center justify-between space-y-2 sm:space-y-0">
               <div>
                 <CardTitle className="text-base sm:text-lg font-semibold">Soal Terbaru</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
@@ -93,8 +93,8 @@ export default function AdminDashboardPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0 overflow-x-auto">
-            <div className="min-w-[600px] md:min-w-0">
+          <CardContent className="max-w-full p-0 overflow-x-auto">
+            <div className="max-w-full min-w-[600px] md:min-w-0">
               <QuestionsTable 
                 questions={data?.questionStats?.recent || []} 
                 loading={loading}

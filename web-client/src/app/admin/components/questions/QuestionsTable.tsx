@@ -259,7 +259,7 @@ export function QuestionsTable({
   const total = pagination.total;
 
   return (
-    <div className="space-y-4 px-2 sm:px-4 py-4 sm:py-4 max-w-full overflow-hidden">
+    <div className="max-w-full space-y-4 px-2 sm:px-4 py-4 sm:py-4 overflow-hidden">
       {/* Header */}
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div className="flex flex-col sm:items-start items-center">
@@ -431,13 +431,13 @@ export function QuestionsTable({
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-zinc-700/40 shadow-md shadow-zinc-900/20 overflow-hidden">
+      <div className="max-w-full overflow-x-auto rounded-lg border border-zinc-700/40 shadow-md shadow-zinc-900/20">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[700px] md:min-w-full w-full">
             <TableHeader className="bg-zinc-700/80 backdrop-blur-sm">
               <TableRow>
                 <TableHead 
-                  className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" 
+                  className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90 w-[28%] min-w-[180px] max-w-[320px]" 
                   onClick={() => handleFilterChange('sortBy', 'question')}
                 >
                   <div className="flex items-center gap-1">
@@ -449,7 +449,7 @@ export function QuestionsTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden md:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'category')}>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden md:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90 w-[14%] min-w-[100px] max-w-[180px]" onClick={() => handleFilterChange('sortBy', 'category')}>
                   <div className="flex items-center gap-1">
                     Kategori
                     {filters.sortBy === 'category' && (
@@ -459,7 +459,7 @@ export function QuestionsTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden lg:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'difficulty')}>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden lg:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90 w-[10%] min-w-[80px] max-w-[110px]" onClick={() => handleFilterChange('sortBy', 'difficulty')}>
                   <div className="flex items-center gap-1">
                     Kesulitan
                     {filters.sortBy === 'difficulty' && (
@@ -469,7 +469,7 @@ export function QuestionsTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden sm:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90" onClick={() => handleFilterChange('sortBy', 'status')}>
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm hidden sm:table-cell hover:text-cyan-400 cursor-pointer hover:bg-zinc-700/90 w-[12%] min-w-[90px] max-w-[120px]" onClick={() => handleFilterChange('sortBy', 'status')}>
                   <div className="flex items-center gap-1">
                     Status
                     {filters.sortBy === 'status' && (
@@ -499,7 +499,7 @@ export function QuestionsTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm text-right">
+                <TableHead className="text-zinc-400 uppercase tracking-wider text-xs sm:text-sm text-right w-[10%] min-w-[80px] max-w-[110px]">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -596,7 +596,7 @@ export function QuestionsTable({
                         </Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell px-4 py-4 text-zinc-300">
+                    <TableCell className="hidden md:table-cell px-2 sm:px-4 py-4 text-zinc-300 align-top">
                       {question.category}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell px-4 py-4">
@@ -604,15 +604,15 @@ export function QuestionsTable({
                         {DIFFICULTY_LABELS[question.difficulty]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell px-4 py-4 text-zinc-300">
+                    <TableCell className="hidden sm:table-cell px-2 sm:px-4 py-4 text-zinc-300 align-top">
                       <Badge className={STATUS_COLORS[question.status]}>
                         {STATUS_LABELS[question.status]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell px-4 py-4 text-zinc-400 text-sm">
+                    <TableCell className="hidden md:table-cell px-2 sm:px-4 py-4 text-zinc-400 text-sm align-top">
                       {question.createdAt}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell px-4 py-4 text-zinc-400 text-sm">
+                    <TableCell className="hidden lg:table-cell px-2 sm:px-4 py-4 text-zinc-400 text-sm align-top">
                       {question.updatedAt}
                     </TableCell>
                     <TableCell className="px-4 py-4 text-right">
